@@ -1,0 +1,8 @@
+*.o
+deps
+jansson
+libjwt
+src/server
+src/jwt_demo_hs256
+src/jwt_demo_rs256
+.gitignore

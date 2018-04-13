@@ -11,7 +11,10 @@ LDLIBS=-L$(DEP_LIB_DIR) -ljwt -ljansson -lcrypto -ldl
 HEADERS=socket.h http.h hexdump.h buffer.h bufio.h
 OBJ=main.o socket.o hexdump.o http.o bufio.o
 
-all:    server
+
+OTHERS=jwt_demo_rs256 jwt_demo_hs256
+
+all:    server $(OTHERS)
 
 $(OBJ) : $(HEADERS)
 
@@ -19,4 +22,4 @@ server: $(OBJ)
 	$(CC) $(LDFLAGS) -o $@ $(OBJ) $(LDLIBS) 
 
 clean:
-	/bin/rm $(OBJ)
+	/bin/rm $(OBJ) $(OTHERS)

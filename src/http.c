@@ -34,19 +34,19 @@ char * server_root;     // root from which static files are served
 
 
 /* Parse HTTP request line, setting req_method, req_path, and req_version. */
-static int
+static bool
 http_parse_request(struct http_transaction *ta)
 {
     size_t req_offset;
     ssize_t len = bufio_readline(ta->client->bufio, &req_offset);
     if (len <= 0)
-        return len;
+        return false;
 
     char *request = bufio_offset2ptr(ta->client->bufio, req_offset);
     char *endptr;
     char *method = strtok_r(request, " ", &endptr);
     if (method == NULL)
-        return -1;
+        return false;
 
     if (!strcmp(method, "GET"))
         ta->req_method = HTTP_GET;
@@ -57,37 +57,37 @@ http_parse_request(struct http_transaction *ta)
 
     char *req_path = strtok_r(NULL, " ", &endptr);
     if (req_path == NULL)
-        return -1;
+        return false;
 
     ta->req_path = bufio_ptr2offset(ta->client->bufio, req_path);
 
     char *http_version = strtok_r(NULL, CRLF, &endptr);
     if (http_version == NULL)  // would be HTTP 0.9
-        return -1;
+        return false;
 
     if (!strcmp(http_version, "HTTP/1.1"))
         ta->req_version = HTTP_1_1;
     else if (!strcmp(http_version, "HTTP/1.0"))
         ta->req_version = HTTP_1_0;
     else
-        return -1;
+        return false;
 
-    return 0;
-} 
+    return true;
+}
 
 /* Process HTTP headers. */
-static int
+static bool
 http_process_headers(struct http_transaction *ta)
 {
     for (;;) {
         size_t header_offset;
         ssize_t len = bufio_readline(ta->client->bufio, &header_offset);
-        char *header = bufio_offset2ptr(ta->client->bufio, header_offset);
         if (len <= 0)
-            return len;
+            return false;
 
+        char *header = bufio_offset2ptr(ta->client->bufio, header_offset);
         if (len == 2 && STARTS_WITH(header, CRLF))       // empty CRLF
-            return 0;
+            return true;
 
         header[len-2] = '\0';
         /* Each header field consists of a name followed by a 
@@ -100,7 +100,7 @@ http_process_headers(struct http_transaction *ta)
         char *field_value = strtok_r(NULL, " \t", &endptr);    // skip leading & trailing OWS
 
         if (field_name == NULL)
-            return -1;
+            return false;
 
         // printf("Header: %s: %s\n", field_name, field_value);
         if (!strcasecmp(field_name, "Content-Length")) {
@@ -109,8 +109,6 @@ http_process_headers(struct http_transaction *ta)
 
         /* Handle other headers here. */
     }
-
-    return 0;
 }
 
 const int MAX_HEADER_LEN = 2048;
@@ -331,16 +329,16 @@ http_handle_transaction(struct http_client *self)
     memset(&ta, 0, sizeof ta);
     ta.client = self;
 
-    if (http_parse_request(&ta) == -1)
-        return -1;
+    if (!http_parse_request(&ta))
+        return false;
 
-    if (http_process_headers(&ta) == -1)
-        return -1;
+    if (!http_process_headers(&ta))
+        return false;
 
     if (ta.req_content_len > 0) {
         int rc = bufio_read(self->bufio, ta.req_content_len, &ta.req_body);
         if (rc != ta.req_content_len)
-            return -1; 
+            return false;
 
         // To see the body, use this:
         // char *body = bufio_offset2ptr(ta.client->bufio, ta.req_body);
