@@ -11,7 +11,7 @@ COOKIEJAR=cookies.txt
 curl -v -H "Content-Type: application/json" \
      -c ${COOKIEJAR} \
      -X POST \
-     -d '{"username":"user0","password":"password"}' \
+     -d '{"username":"user0","password":"thepassword"}' \
     http://localhost:${PORT}/api/login
 
 # this should succeed if the password is correct
