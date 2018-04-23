@@ -39,7 +39,7 @@ http_parse_request(struct http_transaction *ta)
 {
     size_t req_offset;
     ssize_t len = bufio_readline(ta->client->bufio, &req_offset);
-    if (len <= 0)
+    if (len < 2)       // error, EOF, or less than 2 characters
         return false;
 
     char *request = bufio_offset2ptr(ta->client->bufio, req_offset);
@@ -181,7 +181,7 @@ start_response(struct http_transaction * ta, buffer_t *res)
 }
 
 /* Send response headers to client */
-static int
+static bool
 send_response_header(struct http_transaction *ta)
 {
     buffer_t response;
@@ -189,14 +189,14 @@ send_response_header(struct http_transaction *ta)
 
     start_response(ta, &response);
     if (bufio_sendbuffer(ta->client->bufio, &response) == -1)
-        return -1;
+        return false;
 
     buffer_appends(&ta->resp_headers, CRLF);
     if (bufio_sendbuffer(ta->client->bufio, &ta->resp_headers) == -1)
-        return -1;
+        return false;
 
     buffer_delete(&response);
-    return 0;
+    return true;
 }
 
 /* Send a full response to client with the content in resp_body. */
@@ -206,7 +206,7 @@ send_response(struct http_transaction *ta)
     // add content-length.  All other headers must have already been set.
     add_content_length(&ta->resp_headers, ta->resp_body.len);
 
-    if (send_response_header(ta) == -1)
+    if (!send_response_header(ta))
         return false;
 
     return bufio_sendbuffer(ta->client->bufio, &ta->resp_body) != -1;
@@ -297,21 +297,20 @@ handle_static_asset(struct http_transaction *ta, char *basedir)
     add_content_length(&ta->resp_headers, st.st_size);
     http_add_header(&ta->resp_headers, "Content-Type", "%s", guess_mime_type(fname));
 
-    rc = send_response_header(ta);
-    if (rc == -1)
+    bool success = send_response_header(ta);
+    if (!success)
         goto out;
 
-    rc = bufio_sendfile(ta->client->bufio, filefd, NULL, st.st_size);
+    success = bufio_sendfile(ta->client->bufio, filefd, NULL, st.st_size) == st.st_size;
 out:
     close(filefd);
-    return rc;
+    return success;
 }
-
 
 static int
 handle_api(struct http_transaction *ta)
 {
-    return send_error(ta, HTTP_NOT_IMPLEMENTED, "API not implemented");
+    return send_error(ta, HTTP_NOT_FOUND, "API not implemented");
 }
 
 /* Set up an http client, associating it with a bufio buffer. */

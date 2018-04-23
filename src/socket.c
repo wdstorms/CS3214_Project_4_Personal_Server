@@ -121,11 +121,11 @@ socket_accept_client(int accepting_socket)
         return -1;
     }
 
-    /* The following will debug with debugging your server. 
-     * Adjust as necessary.
+    /* The following will help with debugging your server.
+     * Adjust and/or remove as you see fit.
      */
     char peer_addr[1024], peer_port[10];
-    int rc = getnameinfo(&peer, sizeof peer,
+    int rc = getnameinfo(&peer, peersize,
                          peer_addr, sizeof peer_addr, peer_port, sizeof peer_port,
                          NI_NUMERICHOST | NI_NUMERICSERV);
     if (rc != 0) {
