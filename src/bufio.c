@@ -30,7 +30,8 @@ struct bufio {
     buffer_t buf;       // holds data that was received
 };
 
-static const int BUFSIZE = 1536;
+static const int BUFSIZE = 8192;
+static const int READSIZE = 2048;
 static int min(int a, int b) { return a < b ? a : b; }
 
 /* Create a new bufio object from a socket. */
@@ -95,8 +96,8 @@ void bufio_truncate(struct bufio * self)
 static ssize_t
 read_more(struct bufio *self)
 {
-    char * buf = buffer_ensure_capacity(&self->buf, BUFSIZE);
-    int bread = recv(self->socket, buf, BUFSIZE, MSG_NOSIGNAL);
+    char * buf = buffer_ensure_capacity(&self->buf, READSIZE);
+    int bread = recv(self->socket, buf, READSIZE, MSG_NOSIGNAL);
     if (bread < 1)
         return bread;
 

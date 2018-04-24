@@ -13,6 +13,9 @@
 #include "http.h"
 #include "socket.h"
 #include "bufio.h"
+#include "globals.h"
+
+bool silent_mode = false;
 
 /*
  * A non-concurrent, iterative server that serves one client at a time.
@@ -47,10 +50,14 @@ main(int ac, char *av[])
 {
     int opt;
     char *port_string = NULL;
-    while ((opt = getopt(ac, av, "hp:R:")) != -1) {
+    while ((opt = getopt(ac, av, "hp:R:s")) != -1) {
         switch (opt) {
             case 'p':
                 port_string = optarg;
+                break;
+
+            case 's':
+                silent_mode = true;
                 break;
 
             case 'R':

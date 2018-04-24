@@ -348,7 +348,7 @@ http_handle_transaction(struct http_client *self)
     http_add_header(&ta.resp_headers, "Server", "CS3214-Personal-Server");
     buffer_init(&ta.resp_body, 0);
 
-    bool rc;
+    bool rc = false;
     char *req_path = bufio_offset2ptr(ta.client->bufio, ta.req_path);
     if (STARTS_WITH(req_path, "/api")) {
         rc = handle_api(&ta);

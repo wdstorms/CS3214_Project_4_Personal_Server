@@ -21,6 +21,7 @@
 #include <assert.h>
 
 #include "socket.h"
+#include "globals.h"
 
 /*
  * Find a suitable IPv4 address to bind to, create a socket, bind it,
@@ -124,15 +125,17 @@ socket_accept_client(int accepting_socket)
     /* The following will help with debugging your server.
      * Adjust and/or remove as you see fit.
      */
-    char peer_addr[1024], peer_port[10];
-    int rc = getnameinfo(&peer, peersize,
-                         peer_addr, sizeof peer_addr, peer_port, sizeof peer_port,
-                         NI_NUMERICHOST | NI_NUMERICSERV);
-    if (rc != 0) {
-        fprintf(stderr, "getnameinfo error: %s\n", gai_strerror(rc));
-        return -1;
+    if (!silent_mode) {
+        char peer_addr[1024], peer_port[10];
+        int rc = getnameinfo(&peer, peersize,
+                             peer_addr, sizeof peer_addr, peer_port, sizeof peer_port,
+                             NI_NUMERICHOST | NI_NUMERICSERV);
+        if (rc != 0) {
+            fprintf(stderr, "getnameinfo error: %s\n", gai_strerror(rc));
+            return -1;
+        }
+        fprintf(stderr, "Accepted connection from %s:%s\n", peer_addr, peer_port);
     }
-    fprintf(stderr, "Accepted connection from %s:%s\n", peer_addr, peer_port);
     return client;
 }
 
