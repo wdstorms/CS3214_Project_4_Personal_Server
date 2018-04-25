@@ -5,3 +5,4 @@
 
 extern char *server_root;
 extern bool silent_mode;
+extern int token_expiration_time;

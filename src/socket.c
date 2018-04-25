@@ -114,9 +114,14 @@ socket_open_bind_listen(char * port_number_string, int backlog)
 int 
 socket_accept_client(int accepting_socket)
 {
-    struct sockaddr peer;
+    /* The address passed into accept must be large enough for either IPv4 & IPv6.
+     * Using a struct sockaddr is too small to hold a full IPv6 address and accept()
+     * would not return the full address.
+     */
+    struct sockaddr_in6 peer;
     socklen_t peersize = sizeof(peer);
-    int client = accept(accepting_socket, &peer, &peersize);
+
+    int client = accept(accepting_socket, (struct sockaddr *) &peer, &peersize);
     if (client == -1) {
         perror("accept");
         return -1;
@@ -127,7 +132,7 @@ socket_accept_client(int accepting_socket)
      */
     if (!silent_mode) {
         char peer_addr[1024], peer_port[10];
-        int rc = getnameinfo(&peer, peersize,
+        int rc = getnameinfo((struct sockaddr *) &peer, peersize,
                              peer_addr, sizeof peer_addr, peer_port, sizeof peer_port,
                              NI_NUMERICHOST | NI_NUMERICSERV);
         if (rc != 0) {

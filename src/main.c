@@ -16,6 +16,7 @@
 #include "globals.h"
 
 bool silent_mode = false;
+int token_expiration_time = 24 * 60 * 60;   // default token expiration time is 1 day
 
 /*
  * A non-concurrent, iterative server that serves one client at a time.
@@ -41,7 +42,12 @@ server_loop(char *port_string)
 static void
 usage(char * av0)
 {
-    fprintf(stderr, "Usage: %s [-p port] [-R rootdir] [-h]\n", av0);
+    fprintf(stderr, "Usage: %s [-p port] [-R rootdir] [-h] [-e seconds]\n"
+        "  -p port      port number to bind to\n"
+        "  -R rootdir   root directory from which to serve files\n"
+        "  -e seconds   expiration time for tokens in seconds\n"
+        "  -h           display this help\n"
+        , av0);
     exit(EXIT_FAILURE);
 }
 
@@ -50,10 +56,14 @@ main(int ac, char *av[])
 {
     int opt;
     char *port_string = NULL;
-    while ((opt = getopt(ac, av, "hp:R:s")) != -1) {
+    while ((opt = getopt(ac, av, "hp:R:se:")) != -1) {
         switch (opt) {
             case 'p':
                 port_string = optarg;
+                break;
+
+            case 'e':
+                token_expiration_time = atoi(optarg);
                 break;
 
             case 's':
