@@ -26,7 +26,7 @@ static void
 server_loop(char *port_string)
 {
     int accepting_socket = socket_open_bind_listen(port_string, 1024);
-    for (;;) {
+    while (accepting_socket != -1) {
         fprintf(stderr, "Waiting for client...\n");
         int client_socket = socket_accept_client(accepting_socket);
         if (client_socket == -1)
