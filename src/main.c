@@ -15,6 +15,12 @@
 #include "bufio.h"
 #include "globals.h"
 
+/* Implement HTML5 fallback.
+ * This means that if a non-API path refers to a file and that
+ * file is not found or is a directory, return /index.html
+ * instead.  Otherwise, return the file.
+ */
+bool html5_fallback = false;
 bool silent_mode = false;
 int token_expiration_time = 24 * 60 * 60;   // default token expiration time is 1 day
 
@@ -56,8 +62,12 @@ main(int ac, char *av[])
 {
     int opt;
     char *port_string = NULL;
-    while ((opt = getopt(ac, av, "hp:R:se:")) != -1) {
+    while ((opt = getopt(ac, av, "ahp:R:se:")) != -1) {
         switch (opt) {
+            case 'a':
+                html5_fallback = true;
+                break;
+
             case 'p':
                 port_string = optarg;
                 break;
