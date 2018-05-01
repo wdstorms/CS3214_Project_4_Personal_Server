@@ -118,7 +118,7 @@ socket_accept_client(int accepting_socket)
      * Using a struct sockaddr is too small to hold a full IPv6 address and accept()
      * would not return the full address.
      */
-    struct sockaddr_in6 peer;
+    struct sockaddr_storage peer;
     socklen_t peersize = sizeof(peer);
 
     int client = accept(accepting_socket, (struct sockaddr *) &peer, &peersize);
