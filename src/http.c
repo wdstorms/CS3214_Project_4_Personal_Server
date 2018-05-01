@@ -124,7 +124,8 @@ http_add_header(buffer_t * resp, char* key, char* fmt, ...)
 
     va_start(ap, fmt);
     char *error = buffer_ensure_capacity(resp, MAX_HEADER_LEN);
-    resp->len += vsnprintf(error, MAX_HEADER_LEN, fmt, ap);
+    int len = vsnprintf(error, MAX_HEADER_LEN, fmt, ap);
+    resp->len += len > MAX_HEADER_LEN ? MAX_HEADER_LEN - 1 : len;
     va_end(ap);
 
     buffer_appends(resp, "\r\n");
@@ -222,7 +223,8 @@ send_error(struct http_transaction * ta, enum http_response_status status, const
 
     va_start(ap, fmt);
     char *error = buffer_ensure_capacity(&ta->resp_body, MAX_ERROR_LEN);
-    ta->resp_body.len += vsnprintf(error, MAX_ERROR_LEN, fmt, ap);
+    int len = vsnprintf(error, MAX_ERROR_LEN, fmt, ap);
+    ta->resp_body.len += len > MAX_ERROR_LEN ? MAX_ERROR_LEN - 1 : len;
     va_end(ap);
     ta->resp_status = status;
     return send_response(ta);
