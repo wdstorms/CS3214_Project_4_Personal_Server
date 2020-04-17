@@ -3,7 +3,8 @@
 
 #include "buffer.h"
 
-struct bufio;
+struct bufio;   // opaque type
+                // users should interact only via the public functions below
 struct bufio * bufio_create(int socket);
 void bufio_close(struct bufio * self);
 void bufio_truncate(struct bufio * self);

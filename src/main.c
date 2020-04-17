@@ -74,6 +74,7 @@ main(int ac, char *av[])
 
             case 'e':
                 token_expiration_time = atoi(optarg);
+                fprintf(stderr, "token expiration time is %d\n", token_expiration_time);
                 break;
 
             case 's':

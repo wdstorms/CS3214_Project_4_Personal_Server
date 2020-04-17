@@ -13,6 +13,7 @@
 #include <sys/sendfile.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <errno.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -126,6 +127,15 @@ socket_accept_client(int accepting_socket)
         perror("accept");
         return -1;
     }
+
+    /* Performance tuning.  Turn off Nagle's algorithm.
+     * Otherwise, when the servers sends a reply to the client, and the reply
+     * is small relative to the MSS size, there would be a delay of 40ms
+     * during which the OS would hope in vain for more data to be sent.
+     * See tcp(7)
+     */
+    int i = 1;
+    setsockopt(client, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
 
     /* The following will help with debugging your server.
      * Adjust and/or remove as you see fit.

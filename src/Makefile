@@ -22,4 +22,4 @@ server: $(OBJ)
 	$(CC) $(LDFLAGS) -o $@ $(OBJ) $(LDLIBS) 
 
 clean:
-	/bin/rm $(OBJ) $(OTHERS)
+	/bin/rm -f $(OBJ) $(OTHERS) server
