@@ -20,7 +20,7 @@ const checkloginHandler = asyncHandler('CHECKLOGIN', initialState);
 
 export default function(state = initialState, action) {
     let newState;
-    if (action.type === 'LOGIN:OK') {
+    if (action.type.startsWith('LOGIN:')) {
         newState = loginHandler(state, action);
     }
     if (action.type === 'CHECKLOGIN:OK') {

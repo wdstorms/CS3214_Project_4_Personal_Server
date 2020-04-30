@@ -1,5 +1,4 @@
-import React from 'react';
-import PropTypes from 'prop-types';
+import React, { useState } from 'react';
 import {
   Collapse,
   Navbar,
@@ -55,69 +54,50 @@ const DropDowns = (props) => {
 /**
  * Navigation bar component
  */
-class NavBar extends React.Component {
-    static propTypes = {
-        menus: PropTypes.object,
-        user: PropTypes.object,
-        branding: PropTypes.string,
-    }
+const NavBar = (props) => {
+  let [isOpen, setOpen] = useState(false);
 
-    constructor(props) {
-        super(props);
+  const menus = props.menus
+  const user = props.user
+  const toggle = () => { setOpen(!isOpen); }
 
-        this.toggle = this.toggle.bind(this);
-        this.state = {
-          isOpen: false
-        };
-    }
+  return (
+    <div>
+      <Navbar color="light" light expand="md">
+        <NavbarToggler onClick={toggle} />
+        <NavbarBrand to="/">{props.branding}</NavbarBrand>
+        <Collapse isOpen={isOpen} navbar>
+          <Nav className="mr-auto" navbar>
+            {menus.topbar.map((item) =>
+              <NavItem key={item.path}>
+                <NavLink to={item.path} activeClassName="active" tag={RRNavLink}>
+                  {item.label}
+                </NavLink>
+              </NavItem>
+            )}
+            {menus.leftdropdowns &&
+              <DropDowns className="mr-auto" dropdowns={menus.leftdropdowns} user={user} />
+            }
+          </Nav>
+          <Nav className="ml-auto">
+            {menus.rightdropdowns &&
+              <DropDowns className="ml-auto" dropdowns={menus.rightdropdowns} user={user} />
+            }
 
-    toggle() {
-        this.setState({
-            isOpen: !this.state.isOpen
-        });
-    }
-
-    render() {
-        const menus = this.props.menus
-        const user = this.props.user
-        return (
-          <div>
-            <Navbar color="light" light expand="md">
-              <NavbarToggler onClick={this.toggle} />
-              <NavbarBrand to="/">{this.props.branding}</NavbarBrand>
-              <Collapse isOpen={this.state.isOpen} navbar>
-                <Nav className="mr-auto" navbar>
-                  {menus.topbar.map((item) =>
-                     <NavItem key={item.path}>
-                       <NavLink to={item.path} activeClassName="active" tag={RRNavLink}>
-                         {item.label}
-                       </NavLink>
-                     </NavItem>
-                  )}
-                  { menus.leftdropdowns &&
-                    <DropDowns className="mr-auto" dropdowns={menus.leftdropdowns} user={user} />
-                  }
-                </Nav>
-                <Nav className="ml-auto">
-                  { menus.rightdropdowns &&
-                    <DropDowns className="ml-auto" dropdowns={menus.rightdropdowns} user={user} />
-                  }
-
-                  {isLoaded(user) ?
-                    <NavItem>
-                      <NavLink activeClassName="active" tag={RRNavLink} to={this.props.logoutUrl}>Logout ({user.sub})</NavLink>
-                    </NavItem>
-                  :
-                    <NavItem>
-                      <NavLink activeClassName="active" tag={RRNavLink} to={this.props.loginUrl}>Login</NavLink>
-                    </NavItem>
-                  } 
-                </Nav>
-              </Collapse>
-            </Navbar>
-          </div>
-        );
-    }
+            {isLoaded(user) ?
+              <NavItem>
+                <NavLink activeClassName="active" tag={RRNavLink} to={props.logoutUrl}>Logout ({user.sub})</NavLink>
+              </NavItem>
+              :
+              <NavItem>
+                <NavLink activeClassName="active" tag={RRNavLink} to={props.loginUrl}>Login</NavLink>
+              </NavItem>
+            }
+          </Nav>
+        </Collapse>
+      </Navbar>
+    </div>
+  );
 }
 
 export default NavBar;

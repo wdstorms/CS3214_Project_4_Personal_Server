@@ -1,6 +1,5 @@
 import React from 'react';
-import { connect } from 'react-redux';
-import PropTypes from 'prop-types';
+import { useDispatch, useSelector } from 'react-redux';
 
 import { Card, CardHeader, CardBody, Container, Row, Col } from 'reactstrap';
 import { login } from '../actions/auth.js';
@@ -8,28 +7,20 @@ import { isLoading, isLoaded } from '../util/loadingObject'
 import LoginForm from '../components/forms/LoginForm';
 import { Redirect } from 'react-router-dom';
 
-class LoginPage extends React.Component {
-  static contextTypes = {
-    router: PropTypes.object.isRequired
+const LoginPage = (props) => {
+  let dispatch = useDispatch();
+  function doLogin({username, password}) {
+    dispatch(login(username, password));
   }
 
-  static propTypes = {
-    user: PropTypes.object.isRequired
+  const user = useSelector(state => state.auth);
+  const isAuthenticated = isLoaded(user);
+  const { from } = props.location.state || { from: { pathname: "/" } };
+  if (isAuthenticated) {
+    return (<Redirect to={from} />);
   }
 
-  doLogin({username, password}) {
-    this.props.dispatch(login(username, password));
-  }
-
-  render() {
-    const user = this.props.user;
-    const isAuthenticated = isLoaded(user);
-    const { from } = this.props.location.state || { from: { pathname: "/" } };
-    if (isAuthenticated) {
-      return (<Redirect to={from} />);
-    }
-
-    return (
+  return (
     <Container>
       <Row className="pb-5 pt-5">
         <Col xsoffset={0} xs={10} smoffset={4} sm={4}>
@@ -39,21 +30,12 @@ class LoginPage extends React.Component {
               <LoginForm
                 loading={isLoading(user)}
                 autherror={user.error}
-                onSubmit={v => this.doLogin(v)} />
+                onSubmit={v => doLogin(v)} />
             </CardBody>
           </Card>
         </Col>
       </Row>
-    </Container>
-    );
-  }
+    </Container>);
 }
 
-function mapStateToProps(state) {
-  return {
-    user: state.auth
-  };
-}
-
-export default connect(mapStateToProps)(LoginPage);
-
+export default LoginPage;

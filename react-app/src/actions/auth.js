@@ -14,6 +14,9 @@ export function login(username, password) {
     onSuccess(dispatch, data, getState) {
         toastr.success(`Success logging in: ${JSON.stringify(data)}`);
     },
+    onError(dispatch, data, getState) {
+        toastr.success(`Error logging in: ${JSON.stringify(data && data.response && data.response.text)}`);
+    },
   });
 }
 

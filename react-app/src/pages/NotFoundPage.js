@@ -4,12 +4,12 @@ import React from 'react';
  * See https://facebook.github.io/react/docs/reusable-components.html#stateless-functions
  */
 const NotFound = (props) => 
-  <div><h1>Route not found Error</h1>
+  (<div><h1>Route not found Error</h1>
     <div>
         Something went wrong: {window.location.pathname} could not be found!
     </div>
         {/* JSON.stringify(props) */}
-  </div>
+  </div>);
 
 export default NotFound
 

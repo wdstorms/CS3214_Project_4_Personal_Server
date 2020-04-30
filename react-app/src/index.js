@@ -13,6 +13,7 @@ import jQuery from 'jquery';    // for toastr;
 import AppContainer from './containers/AppContainer';
 import store from './store';
 import {checklogin} from './actions/auth';
+import config from './config';
 
 toastr.options.closeButton = true;
 toastr.options.positionClass = 'toast-bottom-right';
@@ -23,7 +24,7 @@ store.dispatch(checklogin());
 const mountPoint = document.getElementById('root');
 const rootNode = (
   <Provider store={store}>
-    <Router>
+    <Router basename={config.publicUrl}>
       <AppContainer />
     </Router>
   </Provider>

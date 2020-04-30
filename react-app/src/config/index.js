@@ -3,13 +3,13 @@ const publicUrl = process.env.PUBLIC_URL
 
 const menus = {
     topbar : [
-        { path: `${publicUrl}/`, label: "Home" },
+        { path: `/`, label: "Home" },
     ],
     leftdropdowns : [
         {
             label: "Public",
             entries: [
-              { path: `${publicUrl}/public`, label: "Public Content" }
+              { path: `/public`, label: "Public Content" }
             ]
         }
     ],
@@ -18,7 +18,7 @@ const menus = {
             label: "Private",
             onlyifauthenticated: true,
             entries: [
-              { path: `${publicUrl}/protected`, label: "Private Content" }
+              { path: `/protected`, label: "Private Content" }
             ]
         }
     ]

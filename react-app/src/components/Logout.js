@@ -1,17 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Redirect } from 'react-router-dom';
 import store from '../store';
 
-class Logout extends React.Component {
-    componentWillMount() {
-        // normally, we would inform the server just in case.
-        document.cookie = "auth_token=";
+const Logout = () => {
+    // normally, we would inform the server just in case.
+    document.cookie = "auth_token=";
+    useEffect(() => {
         store.dispatch({ type: "LOGOUT" });
-    }
-
-    render() {
-        return (<Redirect to="/" />);
-    }
-}
+    }, []);
+    return (<Redirect to="/" />);
+};
 
 export default Logout;
