@@ -1417,19 +1417,18 @@ class Access_Control(Doc_Print_Test_Case):
 
         # Use the session cookie to get the private file
         try:
-            response = self.session.get(url, timeout=2)
+            # prevent path segment normalization
+            req = requests.Request('GET', url)
+            response = self.session.send(req.prepare(), timeout=2)
         except requests.exceptions.RequestException:
             raise AssertionError("The server did not respond within 2s")
 
         if (response.status_code == requests.codes.forbidden):
             raise AssertionError('Server responded with 403 FORBIDDEN instead of 404 NOT FOUND')
 
-        if (response.status_code == requests.codes.forbidden):
-            raise AssertionError('Server responded with 403 FORBIDDEN instead of 404 NOT FOUND')
-
         # Ensure that response code is 404
         self.assertEqual(response.status_code, requests.codes.not_found,
-                         "Server responded with a private file despite no authentication.")
+                         "Server did not respond with 404 when it should have, possible IDOR?")
 
 
 class Authentication(Doc_Print_Test_Case):
