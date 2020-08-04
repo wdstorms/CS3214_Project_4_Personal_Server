@@ -24,14 +24,12 @@
 #include "hexdump.h"
 #include "socket.h"
 #include "bufio.h"
+#include "main.h"
 
 // Need macros here because of the sizeof
 #define CRLF "\r\n"
 #define STARTS_WITH(field_name, header) \
     (!strncasecmp(field_name, header, sizeof(header) - 1))
-
-char * server_root;     // root from which static files are served
-
 
 /* Parse HTTP request line, setting req_method, req_path, and req_version. */
 static bool
@@ -227,6 +225,7 @@ send_error(struct http_transaction * ta, enum http_response_status status, const
     ta->resp_body.len += len > MAX_ERROR_LEN ? MAX_ERROR_LEN - 1 : len;
     va_end(ap);
     ta->resp_status = status;
+    http_add_header(&ta->resp_headers, "Content-Type", "text/plain");
     return send_response(ta);
 }
 
