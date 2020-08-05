@@ -1419,7 +1419,11 @@ class Access_Control(Doc_Print_Test_Case):
         try:
             # prevent path segment normalization
             req = requests.Request('GET', url)
-            response = self.session.send(req.prepare(), timeout=2)
+            prepared_req = req.prepare()
+            # set the URL manually in case newer requests/urllib3 normalizes URL
+            # in prepare() function
+            prepared_req.url = url
+            response = self.session.send(prepared_req, timeout=2)
         except requests.exceptions.RequestException:
             raise AssertionError("The server did not respond within 2s")
 
