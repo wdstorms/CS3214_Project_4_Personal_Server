@@ -426,8 +426,8 @@ else:
                 if rps > requiredmin:
                     category += value
                     break
-            if test == "login10k" and rps > 900:
-                extra = "+10 points extra credit for login10k! If your error count isn't > 5,000..."
+            if test == "login10k" and rps > 1000:
+                extra = "+10 points extra credit for supporting more than 1 million rqs for login10k! If your error count isn't > 5,000..."
         if "mbps" in points:
             mbps = (
                 1e6
