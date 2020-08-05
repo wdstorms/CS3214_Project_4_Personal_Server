@@ -3,7 +3,7 @@
 #
 # Benchmark an HTTP server with wrk
 #
-# @author gback; Spring 2016, Spring 2018, Summer 2002
+# @author gback; Spring 2016, Spring 2018, Summer 2020
 #
 
 import getopt, sys, os, subprocess, signal, re, json, resource, time, socket, atexit
