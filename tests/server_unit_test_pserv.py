@@ -22,7 +22,7 @@ from socket import error as SocketError
 from http.client import OK, NOT_FOUND, FORBIDDEN, METHOD_NOT_ALLOWED, NOT_IMPLEMENTED, HTTPConnection
 random.seed(42)
 
-script_dir = "/".join(__file__.split("/")[:-1])
+script_dir = "/".join(os.path.realpath(__file__).split("/")[:-1])
 if script_dir == "":
     script_dir = "."
 script_dir = os.path.realpath(script_dir)
