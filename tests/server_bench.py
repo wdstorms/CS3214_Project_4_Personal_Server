@@ -6,7 +6,7 @@
 # @author gback; Spring 2016, Spring 2018, Summer 2020
 #
 
-import getopt, sys, os, subprocess, signal, re, json, resource, time, socket, atexit
+import getopt, sys, os, subprocess, signal, re, json, resource, time, socket, atexit, traceback
 from collections import namedtuple
 
 from http.client import HTTPConnection, OK
@@ -380,6 +380,8 @@ else:
         try:
             results[testname] = start_wrk(url, test)
         except Exception as e:
+            # print the backtrace
+            traceback.print_exc(file=sys.stderr)
             print("An exception occurred %s, skipping this test" % (str(e)))
 
     ofilename = "pserv.results.%d.json" % (os.getpid())
