@@ -1348,7 +1348,7 @@ class Access_Control(Doc_Print_Test_Case):
             raise AssertionError("The server did not respond within 2s")
 
         # Ensure that the user is not authenticated
-        self.assertEqual(response.status_code, requests.codes.forbidden, "Authentication failed.")
+        self.assertEqual(response.status_code, requests.codes.bad_request, "Authentication failed.")
 
         # Define the private URL to get
         url = 'http://%s:%s/%s' % (self.hostname, self.port, self.private_file)
