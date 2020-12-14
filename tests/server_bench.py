@@ -452,7 +452,7 @@ else:
         if "errors" in rubric[test]:
             errors = sum(data[test]["summary"]["errors"].values())
             if errors > 0:
-                category = max(category - rubric[test], 0)
+                category = max(category - rubric[test]["errors"], 0)
         print("%s: %d/4" % (test, category))
         score += category
 
