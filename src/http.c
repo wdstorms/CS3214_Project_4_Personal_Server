@@ -28,6 +28,7 @@
 
 // Need macros here because of the sizeof
 #define CRLF "\r\n"
+#define CR "\r"
 #define STARTS_WITH(field_name, header) \
     (!strncasecmp(field_name, header, sizeof(header) - 1))
 
@@ -41,6 +42,7 @@ http_parse_request(struct http_transaction *ta)
         return false;
 
     char *request = bufio_offset2ptr(ta->client->bufio, req_offset);
+    request[len-2] = '\0';  // replace LF with 0 to ensure zero-termination
     char *endptr;
     char *method = strtok_r(request, " ", &endptr);
     if (method == NULL)
@@ -59,10 +61,11 @@ http_parse_request(struct http_transaction *ta)
 
     ta->req_path = bufio_ptr2offset(ta->client->bufio, req_path);
 
-    char *http_version = strtok_r(NULL, CRLF, &endptr);
+    char *http_version = strtok_r(NULL, CR, &endptr);
     if (http_version == NULL)  // would be HTTP 0.9
         return false;
 
+    // record client's HTTP version in request
     if (!strcmp(http_version, "HTTP/1.1"))
         ta->req_version = HTTP_1_1;
     else if (!strcmp(http_version, "HTTP/1.0"))
@@ -97,7 +100,7 @@ http_process_headers(struct http_transaction *ta)
         char *field_name = strtok_r(header, ":", &endptr);
         char *field_value = strtok_r(NULL, " \t", &endptr);    // skip leading & trailing OWS
 
-        if (field_name == NULL)
+        if (field_name == NULL || field_value == NULL)
             return false;
 
         // printf("Header: %s: %s\n", field_name, field_value);
@@ -146,6 +149,9 @@ start_response(struct http_transaction * ta, buffer_t *res)
     switch (ta->resp_status) {
     case HTTP_OK:
         buffer_appends(res, "200 OK");
+        break;
+    case HTTP_PARTIAL_CONTENT:
+        buffer_appends(res, "206 Partial Content");
         break;
     case HTTP_BAD_REQUEST:
         buffer_appends(res, "400 Bad Request");
@@ -295,20 +301,26 @@ handle_static_asset(struct http_transaction *ta, char *basedir)
     }
 
     ta->resp_status = HTTP_OK;
-    add_content_length(&ta->resp_headers, st.st_size);
     http_add_header(&ta->resp_headers, "Content-Type", "%s", guess_mime_type(fname));
+    off_t from = 0, to = st.st_size - 1;
+
+    off_t content_length = to + 1 - from;
+    add_content_length(&ta->resp_headers, content_length);
 
     bool success = send_response_header(ta);
     if (!success)
         goto out;
 
-    success = bufio_sendfile(ta->client->bufio, filefd, NULL, st.st_size) == st.st_size;
+    // sendfile may send fewer bytes than requested, hence the loop
+    while (success && from <= to)
+        success = bufio_sendfile(ta->client->bufio, filefd, &from, to + 1 - from) > 0;
+
 out:
     close(filefd);
     return success;
 }
 
-static int
+static bool
 handle_api(struct http_transaction *ta)
 {
     return send_error(ta, HTTP_NOT_FOUND, "API not implemented");

@@ -20,6 +20,7 @@ enum http_version {
 
 enum http_response_status {
     HTTP_OK = 200,
+    HTTP_PARTIAL_CONTENT = 206,
     HTTP_BAD_REQUEST = 400,
     HTTP_PERMISSION_DENIED = 403,
     HTTP_NOT_FOUND = 404,

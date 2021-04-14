@@ -2,7 +2,12 @@
 # change this as per instruction to avoid conflicts.
 PORT=10000
 
+# to test against a working implementation (and see the intended responses)
+# change this URL=http://theta.cs.vt.edu:3000/
+URL=http://localhost:${PORT}
+
 COOKIEJAR=cookies.txt
+
 
 # clear cookies
 /bin/rm ${COOKIEJAR}
@@ -12,20 +17,20 @@ curl -v -H "Content-Type: application/json" \
      -c ${COOKIEJAR} \
      -X POST \
      -d '{"username":"user0","password":"thepassword"}' \
-    http://localhost:${PORT}/api/login
+    ${URL}/api/login
 
 # this should succeed if the password is correct
 curl -v \
     -b ${COOKIEJAR} \
-    http://localhost:${PORT}/api/login
+    ${URL}/api/login
 
 # create a 'private' folder first.
 # this should fail since credentials were not presented
 curl -v \
-    http://localhost:${PORT}/private/secret.txt
+    ${URL}/private/secret.txt
 
 # this should succeed since credentials were presented
 curl -v \
     -b ${COOKIEJAR} \
-    http://localhost:${PORT}/private/secret.txt
+    ${URl}/private/secret.txt
 

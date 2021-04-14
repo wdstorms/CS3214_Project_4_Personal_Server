@@ -108,6 +108,9 @@ read_more(struct bufio *self)
 /* Given an offset into the buffer, return a char *.
  * This pointer will be valid only until the next call 
  * to any of the bufio_read* function.
+ *
+ * The returned pointer is not guaranteed to point to a
+ * zero-terminated string.
  */
 char * 
 bufio_offset2ptr(struct bufio *self, size_t offset)
@@ -194,7 +197,7 @@ bufio_read(struct bufio *self, size_t count, size_t *buf_offset)
  * See sendfile(2) for return value.
  */
 ssize_t
-bufio_sendfile(struct bufio *self, int fd, off_t *off, int filesize)
+bufio_sendfile(struct bufio *self, int fd, off_t *off, size_t filesize)
 {
     return sendfile(self->socket, fd, off, filesize);
 }
