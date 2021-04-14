@@ -18,7 +18,8 @@ const menus = {
             label: "Private",
             onlyifauthenticated: true,
             entries: [
-              { path: `/protected`, label: "Private Content" }
+              { path: `/protected`, label: "Private Content" },
+              { path: `/player`, label: "Play MP4" }
             ]
         }
     ]

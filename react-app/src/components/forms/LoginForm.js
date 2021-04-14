@@ -1,5 +1,5 @@
 import React from 'react';
-import { Row, Label, Input, Alert, Button, ButtonToolbar, Form, FormGroup } from 'reactstrap';
+import { Container, Row, Label, Input, Alert, Button, ButtonToolbar, Form, FormGroup } from 'reactstrap';
 import { withFormik } from 'formik';
 
 /*
@@ -24,6 +24,7 @@ const LoginForm = (props) => {
 
   return (
     <Form onSubmit={handleSubmit}>
+      <Container>
         <Row>
           <FormGroup>
             <Label for="username">User Name</Label>
@@ -64,6 +65,7 @@ const LoginForm = (props) => {
               </Button>
             </ButtonToolbar>
         </Row>
+      </Container>
     </Form>
   );
 };

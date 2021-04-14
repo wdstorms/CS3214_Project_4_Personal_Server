@@ -7,6 +7,7 @@ import PublicPage from '../pages/PublicPage';
 import NotFoundPage from '../pages/NotFoundPage';
 import HomePage from '../pages/HomePage';
 import PrivatePage from '../pages/PrivatePage';
+import PlayerPage from '../pages/PlayerPage';
 
 import { Switch, Route, withRouter } from 'react-router-dom';
 
@@ -31,6 +32,7 @@ const AppContainer = (props) => (
               <Route path={`/login`} component={LoginPage} />
               <Route path={`/public`} component={PublicPage} />
               <Route path={`/protected`} component={PrivatePage} />
+              <Route path={`/player`} component={PlayerPage} />
               <Route component={NotFoundPage} />
           </Switch>
       </div>

@@ -8,7 +8,7 @@ import LoginForm from '../components/forms/LoginForm';
 import { Redirect } from 'react-router-dom';
 
 const LoginPage = (props) => {
-  let dispatch = useDispatch();
+  const dispatch = useDispatch();
   function doLogin({username, password}) {
     dispatch(login(username, password));
   }

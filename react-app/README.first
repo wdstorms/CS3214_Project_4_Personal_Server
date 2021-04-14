@@ -9,16 +9,12 @@ See https://github.com/facebook/create-react-app/blob/master/packages/react-scri
 for more details.
 
 For our server, you have to implement this by making the appropriate
-changes to how you serve static assets.
-An update to the base code sets up the -a switch to activate this behavior:
-https://git.cs.vt.edu/cs3214-staff/pserv/commit/65ee63d43ef92553cd3650b3e276d71e2f7daec5
-(Note that the patch doesn't contain the necessary fixes to handle_static_assets
-which will be part of future versions of this project.)
+changes to how you serve static assets if the -a switch is given.
 
 The necessary improvement can be made by substituting /index.html as the fname
 when the call to access() fails instead of returning 404.  However, for paths 
 denoting / or existing directories, you must also serve /index.html, which requires 
-a second check to see whether there is an existing directory (and serve /index.html 
+a second check to see whether there is an existing directory (and serve /index.html
 if so).
 
 Once you've made this addition, you can test the app as follows:
@@ -39,5 +35,7 @@ $ npm run build
 
 $ ./server -p yourport -a -R ../react-app/build
 
-(5) You should now be able to go to the app in http://localhost:10000/
+(5) Place one or more .mp4 files into ../react-app/build
+
+(6) You should now be able to go to the app in http://localhost:10000/
 
