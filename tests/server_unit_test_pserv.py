@@ -1329,6 +1329,39 @@ class Access_Control(Doc_Print_Test_Case):
         # Ensure that access is forbidden
         self.assertEqual(response.status_code, requests.codes.forbidden,
                          "Server responded with private file despite not being authenticated.")
+                         
+    def test_access_control_private_valid_semantic_token(self):
+        """ Test Name: test_access_control_private_valid_semantic_token
+        Number Connections: N/A
+        Procedure: Checks if JSON parsing appropriately guards against
+                   missing key/value pairs in the request body (e.g. a 
+                   request without "username" or "password".)
+                   The JSON might be semantically valid, but not
+                   hold the requisite key/value pairs that are needed.
+        """
+        # Login using the default credentials
+        try:
+            response = self.session.post('http://%s:%s/api/login' % (self.hostname, self.port),
+                                         json={'foo': 'bar'},
+                                         timeout=2)
+        except requests.exceptions.RequestException:
+            raise AssertionError("The server did not respond within 2s")
+
+        # Ensure that the user is not authenticated
+        self.assertEqual(response.status_code, requests.codes.bad_request, "Authentication failed.")
+
+        # Define the private URL to get
+        url = 'http://%s:%s/%s' % (self.hostname, self.port, self.private_file)
+
+        # Use the session cookie to get the private file
+        try:
+            response = self.session.get(url, timeout=2)
+        except requests.exceptions.RequestException:
+            raise AssertionError("The server did not respond within 2s")
+
+        # Ensure that access is forbidden
+        self.assertEqual(response.status_code, requests.codes.forbidden,
+                         "Server responded with private file despite not being authenticated.")
 
     def test_access_control_private_no_token(self):
         """ Test Name: test_access_control_private_no_token
