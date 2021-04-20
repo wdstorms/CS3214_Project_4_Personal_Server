@@ -19,7 +19,7 @@ from fractions import Fraction as F
 from multiprocessing.dummy import Pool as ThreadPool
 from socket import error as SocketError
 
-from http.client import OK, NOT_FOUND, FORBIDDEN, METHOD_NOT_ALLOWED, NOT_IMPLEMENTED, HTTPConnection
+from http.client import OK, NOT_FOUND, FORBIDDEN, BAD_REQUEST, METHOD_NOT_ALLOWED, NOT_IMPLEMENTED, HTTPConnection
 random.seed(42)
 
 script_dir = "/".join(os.path.realpath(__file__).split("/")[:-1])
@@ -463,12 +463,17 @@ class Single_Conn_Malicious_Case(Doc_Print_Test_Case):
         super(Single_Conn_Malicious_Case, self).__init__(testname)
         self.hostname = hostname
         self.port = port
+        self.private_file = 'private/secure.html'
+        self.username = 'user0'
+        self.password = 'thepassword'
 
     def setUp(self):
         """  Test Name: None -- setUp function\n\
         Number Connections: N/A \n\
-        Procedure: Nothing to do here
+        Procedure: Create requests session.
         """
+        # Create a requests session
+        self.session = requests.Session()
 
     def tearDown(self):
         """  Test Name: None -- tearDown function\n\
@@ -481,6 +486,8 @@ class Single_Conn_Malicious_Case(Doc_Print_Test_Case):
         if server.poll() is not None:
             # self.fail("The server has crashed.  Please investigate.")
             print("The server has crashed.  Please investigate.")
+        # Close the requests session
+        self.session.close()
 
 
 
@@ -713,6 +720,143 @@ class Single_Conn_Malicious_Case(Doc_Print_Test_Case):
             self.fail("A proper login object was not returned.")
 
         sock.close()
+    
+    def test_auth_flipped_token(self):
+        """ Test Name: test_auth_flipped_token
+        Number Connections: N/A
+        Procedure: Checks if JSON parsing appropriately covers the case
+                   when the correct key/value pair is present, but the
+                   order in which it appears is flipped.
+                   For example, typically one might expect:
+                     '{"username": "<username>", "password": "<password>"}'
+                   This tests for parsing of:
+                     '{"password": "<password>", "username": "<username>"}'
+        """
+        # Login using the default credentials, with the password appearing
+        # first in the JWT, followed by the username
+        try:
+            response = self.session.post('http://%s:%s/api/login' % (self.hostname, self.port),
+                                         json={'password': self.password, 'username': self.username},
+                                         timeout=2)
+        except requests.exceptions.RequestException:
+            raise AssertionError("The server did not respond within 2s")
+
+        # Ensure that the user is authenticated
+        self.assertEqual(response.status_code, requests.codes.ok, "Authentication failed.")
+
+        # Define the private URL to get
+        url = 'http://%s:%s/%s' % (self.hostname, self.port, self.private_file)
+
+        # Use the session cookie to get the private file
+        try:
+            response = self.session.get(url, timeout=2)
+        except requests.exceptions.RequestException:
+            raise AssertionError("The server did not respond within 2s")
+
+        # Ensure that access is forbidden
+        self.assertEqual(response.status_code, requests.codes.ok,
+                         "Server did not respond with private file despite being authenticated.")
+
+    def test_auth_wrong_cookie(self):
+        """ Test Name: test_auth_wrong_cookie
+        Number Connections: N/A
+        Procedure: Sends multiple requests with different cookies:
+                     0. (First, a POST to /api/login to retrieve a valid cookie)
+                     1. A cookie with the wrong name and correct JWT value
+                     2. A cookie with the wrong name and wrong JWT value
+                     3. Two cookies, both with wrong names and values
+                     4. One wrong cookie, and one correct cookie.
+                   Requests 1-3 should NOT be allowed to access a private file.
+                   Request 4 SHOULD be allowed to access a private file.
+                   (Note: a "wrong" name/value means a name/value that doesn't
+                   equal the cookie returned by a successful POST to /api/login.)
+        """
+        # Login using the default credentials
+        try:
+            response = self.session.post('http://%s:%s/api/login' % (self.hostname, self.port),
+                                         json={'username': self.username, 'password': self.password},
+                                         timeout=2)
+        except requests.exceptions.RequestException:
+            raise AssertionError("The server did not respond within 2s")
+
+        # Ensure that the user is authenticated
+        self.assertEqual(response.status_code, requests.codes.ok, "Authentication failed.")
+
+        # Define the private URL to get
+        url = 'http://%s:%s/%s' % (self.hostname, self.port, self.private_file)
+
+        # find the cookie returned by the server (its name and value)
+        cookie_dict = self.session.cookies.get_dict()        # convert cookies to dict
+        self.assertEqual(len(cookie_dict), 1, "Server did not return an authentication token.")
+        cookie_key = list(cookie_dict.keys())[0]             # grab cookie's name
+        cookie_val = self.session.cookies.get(cookie_key)    # grab cookie value
+        # create a few "bad cookie" key-value pairs
+        bad_cookie1_key = "a_bad_cookie1"
+        bad_cookie1_val = "chocolate_chip"
+        bad_cookie2_key = "a_bad_cookie2"
+        bad_cookie2_val = "oatmeal_raisin"
+
+        # ---------- test 1: same cookie value, different name ---------- #
+        # append a string to the cookie name, making it the wrong cookie.
+        # Then, clear the session cookies and add the wrong cookie
+        self.session.cookies.clear()                         # wipe cookies
+        self.session.cookies.set(bad_cookie1_key, cookie_val) # add wrong-named cookie
+        
+        # Use the INVALID cookie to try to get the private file
+        try:
+            response = self.session.get(url, timeout=2)
+        except requests.exceptions.RequestException:
+            raise AssertionError("The server did not respond within 2s")
+
+        # Ensure that access is forbidden
+        self.assertEqual(response.status_code, requests.codes.forbidden,
+                         "Server responded with private file despite not being authenticated.")
+        
+        # ----------- test 2: different cookie value AND name ----------- #
+        # append a string to the cookie value. Then, update the bad cookie's value
+        self.session.cookies.set(bad_cookie1_key, bad_cookie1_val)
+        
+        # Use the INVALID cookie to try to get the private file
+        try:
+            response = self.session.get(url, timeout=2)
+        except requests.exceptions.RequestException:
+            raise AssertionError("The server did not respond within 2s")
+
+        # Ensure that access is forbidden
+        self.assertEqual(response.status_code, requests.codes.forbidden,
+                         "Server responded with private file despite not being authenticated.")
+        
+        # ------------- test 3: multiple incorrect cookies -------------- #
+        # set another cookie, so we end up sending TWO invalid cookies
+        self.session.cookies.set(bad_cookie2_key, bad_cookie2_val)
+        
+        # Use the INVALID cookies to try to get the private file
+        try:
+            response = self.session.get(url, timeout=2)
+        except requests.exceptions.RequestException:
+            raise AssertionError("The server did not respond within 2s")
+
+        # Ensure that access is forbidden
+        self.assertEqual(response.status_code, requests.codes.forbidden,
+                         "Server responded with private file despite not being authenticated.")
+        
+        # --------- test 4: one bad cookie, one correct cookie ---------- #
+        # clear the session cookies and add a bad cookie followed by a good cookie
+        self.session.cookies.clear()
+        self.session.cookies.set(bad_cookie1_key, bad_cookie1_val)
+        self.session.cookies.set(cookie_key, cookie_val)
+        
+        # this time, even though we do have a wrong cookie, we also have the
+        # correct cookie. So, the student's code *should* see this correct
+        # cookie and allow us to get access to the private file
+        try:
+            response = self.session.get(url, timeout=2)
+        except requests.exceptions.RequestException:
+            raise AssertionError("The server did not respond within 2s")
+
+        # Ensure that access is forbidden
+        self.assertEqual(response.status_code, requests.codes.ok,
+                         "Server failed to respond with private file despite being authenticated.")
 
 
 ##############################################################################
@@ -907,8 +1051,9 @@ class Single_Conn_Bad_Case(Doc_Print_Test_Case):
         # Get the server response
         server_response = self.http_connection.getresponse()
 
-        # Check the response code
-        self.assertEqual(server_response.status, FORBIDDEN)
+        # Check the response code (403 or 400)
+        self.assertTrue(server_response.status == FORBIDDEN or
+                        server_response.status == BAD_REQUEST)
 
     def test_login_valid_body_extra_parameters(self):
         """  Test Name: test_login_valid_body_extra_parameters\n
