@@ -98,17 +98,23 @@ http_process_headers(struct http_transaction *ta)
          */
         char *endptr;
         char *field_name = strtok_r(header, ":", &endptr);
-        char *field_value = strtok_r(NULL, " \t", &endptr);    // skip leading & trailing OWS
-
-        if (field_name == NULL || field_value == NULL)
+        if (field_name == NULL)
             return false;
 
+        // skip white space
+        char *field_value = endptr;
+        while (*field_value == ' ' || *field_value == '\t')
+            field_value++;
+
+        // you may print the header like so
         // printf("Header: %s: %s\n", field_name, field_value);
         if (!strcasecmp(field_name, "Content-Length")) {
             ta->req_content_len = atoi(field_value);
         }
 
-        /* Handle other headers here. */
+        /* Handle other headers here. Both field_value and field_name
+         * are zero-terminated strings.
+         */
     }
 }
 

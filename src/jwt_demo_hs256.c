@@ -1,56 +1,73 @@
 /*
  * Quick demo of how to use libjwt using a HS256.
  *
- * @author gback, CS 3214, Spring 2018
+ * @author gback, CS 3214, Spring 2018, updated Spring 2021
  */
 #include <jwt.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <errno.h>
 
 static const char * NEVER_EMBED_A_SECRET_IN_CODE = "supa secret";
+
+static void 
+die(const char *msg, int error)
+{
+    fprintf(stderr, "%s: %s\n", msg, strerror(error));
+    exit(EXIT_FAILURE);
+}
 
 int
 main()
 {
     jwt_t *mytoken;
 
-    if (jwt_new(&mytoken))
-        perror("jwt_new"), exit(-1);
+    int rc = jwt_new(&mytoken);
+    if (rc)
+        die("jwt_new", rc);
 
-    if (jwt_add_grant(mytoken, "sub", "user0"))
-        perror("jwt_add_grant sub"), exit(-1);
+    rc = jwt_add_grant(mytoken, "sub", "user0");
+    if (rc)
+        die("jwt_add_grant sub", rc);
 
     time_t now = time(NULL);
-    if (jwt_add_grant_int(mytoken, "iat", now))
-        perror("jwt_add_grant iat"), exit(-1);
+    rc = jwt_add_grant_int(mytoken, "iat", now);
+    if (rc)
+        die("jwt_add_grant iat", rc);
 
-    if (jwt_add_grant_int(mytoken, "exp", now + 3600 * 24))
-        perror("jwt_add_grant exp"), exit(-1);
+    rc = jwt_add_grant_int(mytoken, "exp", now + 3600 * 24);
+    if (rc)
+        die("jwt_add_grant exp", rc);
 
-    if (jwt_set_alg(mytoken, JWT_ALG_HS256, 
-            (unsigned char *)NEVER_EMBED_A_SECRET_IN_CODE, strlen(NEVER_EMBED_A_SECRET_IN_CODE)))
-        perror("jwt_set_alg"), exit(-1);
+    rc = jwt_set_alg(mytoken, JWT_ALG_HS256, 
+            (unsigned char *)NEVER_EMBED_A_SECRET_IN_CODE, 
+            strlen(NEVER_EMBED_A_SECRET_IN_CODE));
+    if (rc)
+        die("jwt_set_alg", rc);
 
     printf("dump:\n");
-    if (jwt_dump_fp(mytoken, stdout, 1))
-        perror("jwt_dump_fp"), exit(-1);
+    rc = jwt_dump_fp(mytoken, stdout, 1);
+    if (rc)
+        die("jwt_dump_fp", rc);
 
     char *encoded = jwt_encode_str(mytoken);
     if (encoded == NULL)
-        perror("jwt_encode_str"), exit(-1);
+        die("jwt_encode_str", ENOMEM);
 
     printf("encoded as %s\nTry entering this at jwt.io\n", encoded);
 
     jwt_t *ymtoken;
-    if (jwt_decode(&ymtoken, encoded, 
-            (unsigned char *)NEVER_EMBED_A_SECRET_IN_CODE, strlen(NEVER_EMBED_A_SECRET_IN_CODE)))
-        perror("jwt_decode"), exit(-1);
+    rc = jwt_decode(&ymtoken, encoded, 
+            (unsigned char *)NEVER_EMBED_A_SECRET_IN_CODE, 
+            strlen(NEVER_EMBED_A_SECRET_IN_CODE));
+    if (rc)
+        die("jwt_decode", rc);
 
     char *grants = jwt_get_grants_json(ymtoken, NULL); // NULL means all
     if (grants == NULL)
-        perror("jwt_get_grants_json"), exit(-1);
+        die("jwt_get_grants_json", ENOMEM);
 
     printf("redecoded: %s\n", grants);
 }
