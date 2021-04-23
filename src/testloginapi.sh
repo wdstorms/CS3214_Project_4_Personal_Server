@@ -32,5 +32,5 @@ curl -v \
 # this should succeed since credentials were presented
 curl -v \
     -b ${COOKIEJAR} \
-    ${URl}/private/secret.txt
+    ${URL}/private/secret.txt
 
