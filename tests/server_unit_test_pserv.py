@@ -1328,108 +1328,7 @@ class Access_Control(Doc_Print_Test_Case):
         # Ensure that access is granted
         self.assertEqual(response.status_code, requests.codes.ok,
                          "Server failed to respond with private file despite being authenticated.")
-
-    def test_access_control_private_wrong_cookie(self):
-        """ Test Name: test_access_control_public_wrong_cookie
-        Number Connections: N/A
-        Procedure: Sends multiple requests with different cookies:
-                     0. (First, a POST to /api/login to retrieve a valid cookie)
-                     1. A cookie with the wrong name and correct JWT value
-                     2. A cookie with the wrong name and wrong JWT value
-                     3. Two cookies, both with wrong names and values
-                     4. One wrong cookie, and one correct cookie.
-                   Requests 1-3 should NOT be allowed to access a private file.
-                   Request 4 SHOULD be allowed to access a private file.
-                   (Note: a "wrong" name/value means a name/value that doesn't
-                   equal the cookie returned by a successful POST to /api/login.)
-        """
-        # Login using the default credentials
-        try:
-            response = self.session.post('http://%s:%s/api/login' % (self.hostname, self.port),
-                                         json={'username': self.username, 'password': self.password},
-                                         timeout=2)
-        except requests.exceptions.RequestException:
-            raise AssertionError("The server did not respond within 2s")
-
-        # Ensure that the user is authenticated
-        self.assertEqual(response.status_code, requests.codes.ok, "Authentication failed.")
-
-        # Define the private URL to get
-        url = 'http://%s:%s/%s' % (self.hostname, self.port, self.private_file)
-
-        # find the cookie returned by the server (its name and value)
-        cookie_dict = self.session.cookies.get_dict()        # convert cookies to dict
-        self.assertEqual(len(cookie_dict), 1, "Server did not return an authentication token.")
-        cookie_key = list(cookie_dict.keys())[0]             # grab cookie's name
-        cookie_val = self.session.cookies.get(cookie_key)    # grab cookie value
-        # create a few "bad cookie" key-value pairs
-        bad_cookie1_key = "a_bad_cookie1"
-        bad_cookie1_val = "chocolate_chip"
-        bad_cookie2_key = "a_bad_cookie2"
-        bad_cookie2_val = "oatmeal_raisin"
-
-        # ---------- test 1: same cookie value, different name ---------- #
-        # append a string to the cookie name, making it the wrong cookie.
-        # Then, clear the session cookies and add the wrong cookie
-        self.session.cookies.clear()                         # wipe cookies
-        self.session.cookies.set(bad_cookie1_key, cookie_val) # add wrong-named cookie
-        
-        # Use the INVALID cookie to try to get the private file
-        try:
-            response = self.session.get(url, timeout=2)
-        except requests.exceptions.RequestException:
-            raise AssertionError("The server did not respond within 2s")
-
-        # Ensure that access is forbidden
-        self.assertEqual(response.status_code, requests.codes.forbidden,
-                         "Server responded with private file despite not being authenticated.")
-        
-        # ----------- test 2: different cookie value AND name ----------- #
-        # append a string to the cookie value. Then, update the bad cookie's value
-        self.session.cookies.set(bad_cookie1_key, bad_cookie1_val)
-        
-        # Use the INVALID cookie to try to get the private file
-        try:
-            response = self.session.get(url, timeout=2)
-        except requests.exceptions.RequestException:
-            raise AssertionError("The server did not respond within 2s")
-
-        # Ensure that access is forbidden
-        self.assertEqual(response.status_code, requests.codes.forbidden,
-                         "Server responded with private file despite not being authenticated.")
-        
-        # ------------- test 3: multiple incorrect cookies -------------- #
-        # set another cookie, so we end up sending TWO invalid cookies
-        self.session.cookies.set(bad_cookie2_key, bad_cookie2_val)
-        
-        # Use the INVALID cookies to try to get the private file
-        try:
-            response = self.session.get(url, timeout=2)
-        except requests.exceptions.RequestException:
-            raise AssertionError("The server did not respond within 2s")
-
-        # Ensure that access is forbidden
-        self.assertEqual(response.status_code, requests.codes.forbidden,
-                         "Server responded with private file despite not being authenticated.")
-        
-        # --------- test 4: one bad cookie, one correct cookie ---------- #
-        # clear the session cookies and add a bad cookie followed by a good cookie
-        self.session.cookies.clear()
-        self.session.cookies.set(bad_cookie1_key, bad_cookie1_val)
-        self.session.cookies.set(cookie_key, cookie_val)
-        
-        # this time, even though we do have a wrong cookie, we also have the
-        # correct cookie. So, the student's code *should* see this correct
-        # cookie and allow us to get access to the private file
-        try:
-            response = self.session.get(url, timeout=2)
-        except requests.exceptions.RequestException:
-            raise AssertionError("The server did not respond within 2s")
-
-        # Ensure that access is forbidden
-        self.assertEqual(response.status_code, requests.codes.ok,
-                         "Server failed to respond with private file despite being authenticated.")
-
+    
     def test_access_control_public_valid_token(self):
         """ Test Name: test_access_control_public_valid_token
         Number Connections: N/A
@@ -1609,44 +1508,8 @@ class Access_Control(Doc_Print_Test_Case):
 
         # Ensure that access is forbidden
         self.assertEqual(response.status_code, requests.codes.forbidden,
-                         "Server responded with private file despite not being authenticated.")
+                         "Server responded with private file despite not being authenticated.")    
     
-    def test_access_control_private_valid_flipped_token(self):
-        """ Test Name: test_access_control_private_valid_flipped_token
-        Number Connections: N/A
-        Procedure: Checks if JSON parsing appropriately covers the case
-                   when the correct key/value pair is present, but the
-                   order in which it appears is flipped.
-                   For example, typically one might expect:
-                     '{"username": "<username>", "password": "<password>"}'
-                   This tests for parsing of:
-                     '{"password": "<password>", "username": "<username>"}'
-        """
-        # Login using the default credentials, with the password appearing
-        # first in the JWT, followed by the username
-        try:
-            response = self.session.post('http://%s:%s/api/login' % (self.hostname, self.port),
-                                         json={'password': self.password, 'username': self.username},
-                                         timeout=2)
-        except requests.exceptions.RequestException:
-            raise AssertionError("The server did not respond within 2s")
-
-        # Ensure that the user is authenticated
-        self.assertEqual(response.status_code, requests.codes.ok, "Authentication failed.")
-
-        # Define the private URL to get
-        url = 'http://%s:%s/%s' % (self.hostname, self.port, self.private_file)
-
-        # Use the session cookie to get the private file
-        try:
-            response = self.session.get(url, timeout=2)
-        except requests.exceptions.RequestException:
-            raise AssertionError("The server did not respond within 2s")
-
-        # Ensure that access is forbidden
-        self.assertEqual(response.status_code, requests.codes.ok,
-                         "Server did not respond with private file despite being authenticated.")
-
     def test_access_control_private_no_token(self):
         """ Test Name: test_access_control_private_no_token
         Number Connections: N/A
