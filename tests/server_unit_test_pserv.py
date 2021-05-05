@@ -753,7 +753,7 @@ class Single_Conn_Malicious_Case(Doc_Print_Test_Case):
         except requests.exceptions.RequestException:
             raise AssertionError("The server did not respond within 2s")
 
-        # Ensure that access is forbidden
+        # Ensure that access is granted
         self.assertEqual(response.status_code, requests.codes.ok,
                          "Server did not respond with private file despite being authenticated.")
 
@@ -2206,6 +2206,7 @@ process.
                         "Please examine the errors listed above.\n")
 
         print('Beginning Extra Tests')
+        server = restart_server()
         time.sleep(3 if run_slow else 1)
         # Run the extra tests
         test_results = unittest.TextTestRunner().run(extra_tests_suite)
