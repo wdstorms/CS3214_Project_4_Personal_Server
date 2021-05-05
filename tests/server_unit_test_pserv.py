@@ -256,7 +256,7 @@ def check_empty_login_respnse(response):
 
 ld_preload = f'{script_dir}/getaddrinfo.so.1.0.1'
 if not os.path.exists(ld_preload):
-    print (f"Couldn't find ${ld_preload}, please run (cd {script_dir}; build.sh)")
+    print (f"Couldn't find ${ld_preload}, please run (cd {script_dir}; ./build.sh)")
     sys.exit(1)
 
 def usage():
@@ -2175,23 +2175,23 @@ process.
             def restart_server(preargs=args):
                 killserver(server)
                 server.wait()
-                newserver = start_server(preargs=args)
+                newserver = start_server(preargs=preargs)
                 time.sleep(3 if run_slow else 1)
                 return newserver
 
-            server = restart_server(preargs=['env', 'REVERSEIPADDR=1', ld_preload])
+            server = restart_server(preargs=['env', 'REVERSEIPADDR=1', f'LD_PRELOAD={ld_preload}'])
 
             ts2 = makeTestSuiteForHost(ipv6_host)
             run_and_count("Checking that server can accept IPv6 connections if addresses are in reverse", ts2)
 
             # check that server can accept IPv6 connections if only IPv6 addresses are listed
-            server = restart_server(preargs=['env', 'SKIPIPV4=1', ld_preload])
+            server = restart_server(preargs=['env', 'SKIPIPV4=1', f'LD_PRELOAD={ld_preload}'])
 
             ts3 = makeTestSuiteForHost(ipv6_host)
             run_and_count("Checking that server can accept IPv6 connections if no IPv4 addresses", ts3)
 
             # check that server can accept IPv4 connections if only IPv4 addresses are listed
-            server = restart_server(preargs=['env', 'SKIPIPV6=1', ld_preload])
+            server = restart_server(preargs=['env', 'SKIPIPV6=1', f'LD_PRELOAD={ld_preload}'])
 
             ts4 = makeTestSuiteForHost(hostname)
             run_and_count("Checking that server can accept IPv4 connections if no IPv6 addresses", ts4)
