@@ -8,22 +8,22 @@ Fuzzing your server is as simple as typing `fuzz-pserv.py --src-dir <your_src_di
   
 To understand everything displayed on the status screen, check out [AFL++'s documentation](https://aflplus.plus/docs/status_screen/). You'll probably be most interested in the "overall results" section of the status screen, displayed in the top-right corner. This gives a report of all unique crashes and hangs, as well as how many "paths" the fuzzer has discovered. (A "path" describes a unique path of code executed by your server. A "unique" crash/hang describes a crash/hang that was found on one such path.)
 
-## Parallel Fuzzing
+## Research Participation
 
-By default, this script invokes AFL++ using a single core on the system. However, you can specify any number of cores (up to the maximum) to spawn _multiple_ AFL++ processes (one on each core). These processes work together to find crashes/hangs - as a whole, they can typically find more bugs faster than a single process on a single core.
-  
-You can use the `--fuzz-cores` switch to specify the number of cores you wish to use.
+When the fuzzing script starts, you'll be presented with a brief menu asking about research participation. This project is part of Connor Shugg's M.S. Thesis project work. If you choose to grant consent, your source code and fuzzer results will be collected and stored in a secure location for research purposes. Before making a decision, please read the forum post and full consent form displayed on the course forum and course website.
 
-### Timing/Core Limits
+## Fuzzing Results
 
-As you might know, RLogin can get pretty cluttered as we move closer to project deadlines. Parallel fuzzing is very effective, but using too many cores on a machine can prevent others from getting work done. Because of this, limits are established to prevent any one student from fuzzing with too many cores for too long.
-  
-This limit is described in "CPU-Seconds" - a maximum number of time you can fuzz that varies with the number of cores you use. The more cores you specify with `--fuzz-cores`, the less maximum time you'll be allowed to run AFL++. Using a single core (the default), you can run AFL++ for the longest time. Using two cores, you can run AFL++ for half that time. With three cores, you can run for a third of that time. (And so on.)
-
-### Fuzzing Results
-
-Once AFL++ has terminated (either by timeout or by Ctrl-C), the script will print a summary of the crashes/hangs that were found. By default, the output directory will be placed in your pserv's src directory (specified by `--src-dir`). However, you can use the `--out-dir` switch to specify otherwise.
+Once AFL++ has terminated, (either when finding a bug or after a set timeout) the script will print a summary of the crashes/hangs that were found. By default, the output directory will be placed in your pserv's src directory (specified by `--src-dir`). However, you can use the `--out-dir` switch to specify otherwise.
 
 ![](./images/img_fuzz_pserv_screenshot2.png)
-  
-If crashes or hangs are found, the directories containing the crash-inducing input files are listed in the summary. Time to investigate those bugs!
+
+If crashes or hangs are found, the directories containing the crash-inducing input files are listed in the summary. Two shell scripts will be generated and placed within the output directory. Simply give those a run to reproduce the crashes and get debugging!
+
+## Extra Credit
+
+Once fuzzing has finished and the fuzzing summary has been printed, you might notice a message regarding extra credit being printed:
+
+![](./images/img_fuzz_pserv_screenshot3.png)
+
+Using this fuzzer allows you the chance to earn extra credit on project 4. This extra credit scores you for how well your server performed under fuzzing for certain time periods. A `.tar` file is produced after each fuzzing run and is submittable to a special `p4-ex` grading endpoint for extra credit evaluation.
