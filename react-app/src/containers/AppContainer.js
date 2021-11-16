@@ -19,7 +19,7 @@ import config from '../config/';
  */
 const AppContainer = (props) => (
     <div>
-      <TopNavBar branding="CS3214 Demo App 2020"
+      <TopNavBar branding="CS3214 Demo App 2021"
                   menus={config.menus} 
                   user={props.user} 
                   loginUrl={`/login`}
