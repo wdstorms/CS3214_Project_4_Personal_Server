@@ -10,11 +10,11 @@ Now, to make sure this fruit slicer works correctly, you decide it's best to tes
 
 ![](./images/img_fuzzing_analogy1.png)
   
-At this point, you might think your machine is perfect: it cuts every kind of fruit flawlessly. Enter, fuzzing. What happens if you put something into the fruit slicer that it isn't expecting? Some unexpected inputs might be: water, bread, a paper towel, a rock, or a spoon. These aren't fruits, and some of them aren't even food. Will your machine break?
+At this point, you might think your machine is perfect: it cuts every kind of fruit flawlessly. Enter, fuzzing. Take the fruit and surround it by a bunch of rocks, then glue it together and bake it in the oven for twelve hours. We've "mutated" the original input to be something odd and unexpected. Will your machine break?
 
 ![](./images/img_fuzzing_analogy2.png)
   
-By fuzzing, we can uncover bugs that might later be revealed by attackers or flawed inputs. Identifying such bugs and fixing them will make our programs more robust and secure.
+Now, mutate something else (or the same input a second time), and try it again. Now do it again. Over and over. This is fuzzing: creating unexpected inputs and feeding it to our target repeatedly, in some automated fashion. By fuzzing, we can uncover bugs that might later be revealed by attackers or flawed inputs. Identifying such bugs and fixing them will make our programs more robust and secure.
 
 ## Fuzzing HTTP Servers
 
@@ -37,4 +37,4 @@ User-Agent: Mozilla/4.0
 Conn---ection: Keep-Alivey
 ```
 
-As is common with most fuzzers, the input was "mutated" to produce this odd, incorrect HTTP request message. Will your server see the `GONT` and recognize it as an invalid method? Will it realize `HTTP/1.111` is an invalid version number? If your program handles this badly, and ends up crashing or doing something it shouldn't, then fuzzing was a success. An attacker could take advantage of this vulnerability to bring your server down while it's doing important work! Of course, a proactive programmer could also take this knowledge and patch up the problem to prevent future crashes.
+As is common with most fuzzers, the input was "mutated" to produce this odd, incorrect HTTP request message. Will your server see the `GONT` and recognize it as an invalid method? Will it realize `HTTP/1.111` is an invalid version number? If your program handles this badly, and ends up crashing or doing something it shouldn't, then fuzzing was a success. An attacker could take advantage of this vulnerability to bring your server down while it's doing important work. Of course, a proactive programmer could also take this knowledge and patch up the problem to prevent future crashes.
