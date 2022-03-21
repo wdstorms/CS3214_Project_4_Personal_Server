@@ -1614,6 +1614,145 @@ class Access_Control(Doc_Print_Test_Case):
         self.assertEqual(response.status_code, requests.codes.not_found,
                          "Server did not respond with 404 when it should have, possible IDOR?")
 
+class Fallback(Doc_Print_Test_Case):
+    """
+    Test cases for HTML 5 fallback, using good requests that expect a
+    fallback to occur when a file isn't found or / is requested.
+    """
+
+    def __init__(self, testname, hostname, port):
+        """
+        Prepare the test case for creating connections.
+        """
+        super(Fallback, self).__init__(testname)
+
+        self.hostname = hostname
+        self.port = port
+        self.files_nofallback = ['js/jquery.min.js', 'css/jquery-ui.min.css']
+        self.files_fallback = ['this_file_better_not_exist_or_the_test_will_fail', '']
+
+    def setUp(self):
+        """  Test Name: None -- setUp function\n\
+        Number Connections: N/A \n\
+        Procedure: Opens the HTTP connection to the server.  An error here \
+                   means the script was unable to create a connection to the \
+                   server.
+        """
+        # Create a requests session
+        self.session = requests.Session()
+
+    def tearDown(self):
+        """  Test Name: None -- tearDown function\n\
+        Number Connections: N/A \n\
+        Procedure: Closes the HTTP connection to the server.  An error here \
+                   means the server crashed after servicing the request from \
+                   the previous test.
+        """
+        # Close the HTTP connection
+        self.session.close()
+
+    def test_html5_fallback_valid_file(self):
+        """ Test Name: test_access_control_private_path
+        Number Connections: N/A
+        Procedure: Checks if the server, with HTML5 fallback enabled, still sends
+                   the correct contents of files that DO exist to the client.
+                   A failure here means the server's HTML5 fallback is sending back
+                   the contents of /index.html even though a request was made for
+                   a valid file that exists and is accessible.
+        """
+        
+        # ----------------------- Retrieve /index.html ----------------------- #
+        # first, make a GET request for /index.html
+        index_content = ""
+        index_url = "http://%s:%s/index.html" % (self.hostname, self.port)
+        try:
+            req = requests.Request('GET', index_url)
+            prepared_req = req.prepare()
+            prepared_req.url = index_url
+            response = self.session.send(prepared_req, timeout=2)
+        except requests.exceptions.RequestException:
+            raise AssertionError("The server did not respond within 2s")
+        
+        # check the response code - we expect 200 OK
+        if (response.status_code != requests.codes.ok):
+            raise AssertionError('Server responded with %d instead of 200 OK when requested with /%s' % 
+                                 (response.status_code, 'index.html'))
+        index_content = response.text
+
+       # ---------------------------- Actual Test ---------------------------- #
+        # do the following for each of the no-fallback-expected files
+        for f in self.files_nofallback: 
+            # build a url to the file
+            url = "http://%s:%s/%s" % (self.hostname, self.port, f)
+
+            # make a GET request for the file
+            try:
+                req = requests.Request('GET', url)
+                prepared_req = req.prepare()
+                prepared_req.url = url
+                response = self.session.send(prepared_req, timeout=2)
+            except requests.exceptions.RequestException:
+                raise AssertionError("The server did not respond within 2s")
+            
+            # check the response code - we expect 200 OK
+            if (response.status_code != requests.codes.ok):
+                raise AssertionError('Server responded with %d instead of 200 OK when requested with /%s' %
+                                     (response.status_code, f))
+
+            # check the contents of the file - this SHOULDN'T be index.html
+            if index_content in response.text:
+                raise AssertionError('Server returned /index.html when requested with a different, valid file')
+    
+    def test_html5_fallback_invalid_file(self):
+        """ Test Name: test_html5_fallback_invalid_file
+        Number Connections: N/A
+        Procedure: Checks if the server supports the HTML5 fallback to /index.html.
+                   A failure here means that HTML5 fallback support does not work
+                   (meaning, a request for /some_file_that_doesnt_exist does not get
+                   rerouted to /index.html)
+        """
+       
+        # ----------------------- Retrieve /index.html ----------------------- #
+        # first, make a GET request for /index.html
+        index_content = ""
+        index_url = "http://%s:%s/index.html" % (self.hostname, self.port)
+        try:
+            req = requests.Request('GET', index_url)
+            prepared_req = req.prepare()
+            prepared_req.url = index_url
+            response = self.session.send(prepared_req, timeout=2)
+        except requests.exceptions.RequestException:
+            raise AssertionError("The server did not respond within 2s")
+        
+        # check the response code - we expect 200 OK
+        if (response.status_code != requests.codes.ok):
+            raise AssertionError('Server responded with %d instead of 200 OK when requested with /%s' % 
+                                 (response.status_code, 'index.html'))
+        index_content = response.text
+         
+        # --------------------------- Actual Test ---------------------------- #
+        # do the following for each of the fallback-expected files
+        for f in self.files_fallback:
+            # build a url to the file
+            url = "http://%s:%s/%s" % (self.hostname, self.port, f)
+
+            # make a GET request for the file
+            try:
+                req = requests.Request('GET', url)
+                prepared_req = req.prepare()
+                prepared_req.url = url
+                response = self.session.send(prepared_req, timeout=2)
+            except requests.exceptions.RequestException:
+                raise AssertionError("The server did not respond within 2s")
+            
+            # check the response code - we expect 200 OK
+            if (response.status_code != requests.codes.ok):
+                raise AssertionError('Server responded with %d instead of 200 OK when requested with /%s' %
+                                     (response.status_code, f))
+
+            # check the contents of the file - this SHOULD be index.html
+            if index_content not in response.text:
+                raise AssertionError('Server failed to return /index.html when requested with \'%s\'' % f)
 
 class Authentication(Doc_Print_Test_Case):
     """
@@ -1882,13 +2021,16 @@ malicious_total = 20
 # 4 tests
 ipv6_total = 5
 # ? tests
-auth_total = 25
+auth_total = 20
+# ? tests (html5 fallback)
+fallback_total = 5
 
 
-def print_points(minreq, extra, malicious, ipv6, auth):
+def print_points(minreq, extra, malicious, ipv6, auth, fallback):
     """All arguments are fractions (out of 1)"""
     print("Minimum Requirements:         \t%2d/%2d" % (int(minreq * minreq_total), minreq_total))
     print("Authentication Functionality: \t%2d/%2d" % (int(auth * auth_total), auth_total))
+    print("HTML5 Fallback Functionality: \t%2d/%2d" % (int(fallback * fallback_total), fallback_total))
     print("IPv6 Functionality:           \t%2d/%2d" % (int(ipv6 * ipv6_total), ipv6_total))
     print("Extra Tests:                  \t%2d/%2d" % (int(extra * extra_total), extra_total))
     print("Robustness:                   \t%2d/%2d" % (int(malicious * malicious_total), malicious_total))
@@ -1938,7 +2080,7 @@ if __name__ == '__main__':
 
     alltests = [Single_Conn_Good_Case, Multi_Conn_Sequential_Case, Single_Conn_Bad_Case,
                 Single_Conn_Malicious_Case, Single_Conn_Protocol_Case, Access_Control,
-                Authentication]
+                Authentication, Fallback]
 
 
     def findtest(tname):
@@ -2046,6 +2188,11 @@ process.
             server.wait()
             server = start_server(postargs=['-e', auth_token_expiry])
             time.sleep(3 if run_slow else 1)
+        if testclass == Fallback:
+            killserver(server)
+            server.wait()
+            server = start_server(postargs=['-a'])
+            time.sleep(3 if run_slow else 1)
         if testclass:
             single_test_suite.addTest(testclass(individual_test, hostname, port))
         else:
@@ -2088,6 +2235,13 @@ process.
             if test_function.startswith("test_"):
                 auth_tests_suite.addTest(Authentication(test_function, hostname, port))
 
+        # Test Suite to test HTML5 fallback functionality. Add all tests from
+        # the Fallback class.
+        html5_fallback_suite = unittest.TestSuite()
+        for test_function in dir(Fallback):
+            if test_function.startswith("test_"):
+                html5_fallback_suite.addTest(Fallback(test_function, hostname, port))
+
         # Test Suite for extra points, mostly testing error cases
         extra_tests_suite = unittest.TestSuite()
 
@@ -2128,7 +2282,7 @@ process.
                   "Please examine the above errors, the remaining tests\n" +
                   "will not be run until after the above tests pass.\n")
 
-            print_points(minreq_score, 0, 0, 0, 0)
+            print_points(minreq_score, 0, 0, 0, 0, 0)
             sys.exit()
 
         print('Beginning Authentication Tests')
@@ -2144,6 +2298,19 @@ process.
         auth_score = max(0,
                           F(auth_tests_suite.countTestCases() - len(test_results.errors) - len(test_results.failures),
                             auth_tests_suite.countTestCases()))
+
+        print('Beginning HTML5 Fallback Tests')
+        # kill the server and start it again with '-a' (to enable HTML5 fallback)
+        killserver(server)
+        server.wait()
+        server = start_server(postargs=['-a'])  # add HTML5 fallback argument
+        time.sleep(3 if run_slow else 1)        # wait for start-up
+
+        # run the html5 fallback test suite and compute a score
+        test_results = unittest.TextTestRunner().run(html5_fallback_suite)
+        fallback_score = max(0,
+                             F(html5_fallback_suite.countTestCases() - len(test_results.errors) - len(test_results.failures),
+                               html5_fallback_suite.countTestCases()))
 
         def makeTestSuiteForHost(hostname):
             # IPv6 Test Suite
@@ -2228,7 +2395,7 @@ process.
                   "Please examine the above errors, the Malicious Tests\n" +
                   "will not be run until the above tests pass.\n")
 
-            print_points(minreq_score, extra_score, 0, ipv6_score, auth_score)
+            print_points(minreq_score, extra_score, 0, ipv6_score, auth_score, fallback_score)
             sys.exit()
 
         print("Now running the MALICIOUS Tests.  WARNING:  These tests will not necessarily run fast!")
@@ -2247,5 +2414,5 @@ process.
             print("\nYou have NOT passed one or more of the Malicious Tests.  " +
                   "Please examine the errors listed above.\n")
 
-        print_points(minreq_score, extra_score, robustness_score, ipv6_score, auth_score)
+        print_points(minreq_score, extra_score, robustness_score, ipv6_score, auth_score, fallback_score)
 
