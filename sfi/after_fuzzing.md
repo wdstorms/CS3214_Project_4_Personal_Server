@@ -4,7 +4,7 @@ Once you've completed a fuzzing run, you'll most likely have a few output files 
 
 ![](./images/img_fuzz_results_screenshot1.png)
 
-The `LD_PRELOAD` library ("sockstorm") developed for this purpose uses a special file format to represent several connections' data in a single run. Because of this, sending the file straight to your server won't reproduce the exact behavior found by the fuzzer.
+The `LD_PRELOAD` library ("gurthang") developed for this purpose uses a special file format to represent several connections' data in a single run. Because of this, sending the file straight to your server won't reproduce the exact behavior found by the fuzzer.
 
 (If you'd like to see the details of one of these **comux** files, run `~cs3214/bin/comux -s -i PATH_TO_FILE [-v]` on one to show a summary of how many connections are represented in the file, and what data will be sent to the server.)
 

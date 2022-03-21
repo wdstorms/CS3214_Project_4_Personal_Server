@@ -4,7 +4,7 @@ The security of computer systems is extremely important. If vulnerabilities exis
   
 Web servers are one such type of computer system, and since most are directly connected to the internet, they're tested (and often deliberately attacked) every day by thousands of users. How can we be sure a web server can gracefully handle any sort of input?
   
-Some may argue that it's impossible to uncover _every_ bug in a system. But, we as computer scientists and computer engineers can use some effective techniques to catch most of them. Fuzzing is one such technique. This "fuzzing interface" allows you to utilize AFL++ (an advanced fuzzer) along with a special `LD_PRELOAD` library (called "sockstorm") to fuzz your pserv implementation. This will help you uncover any bugs in your code that cause your server to crash or hang.
+Some may argue that it's impossible to uncover _every_ bug in a system. But, we as computer scientists and computer engineers can use some effective techniques to catch most of them. Fuzzing is one such technique. This "fuzzing interface" allows you to utilize AFL++ (an advanced fuzzer) along with a special `LD_PRELOAD` library (called "gurthang") to fuzz your pserv implementation. This will help you uncover any bugs in your code that cause your server to crash or hang.
 
 A quick crash-course on how to get started is below. However, many more useful details can be found throughout the documentation.
 
@@ -12,14 +12,14 @@ A quick crash-course on how to get started is below. However, many more useful d
 
 ### **Concepts**
 
-- [What is fuzzing?](./sfi_concepts_fuzzing.md)
-- [What is AFL++?](./sfi_concepts_afl.md)
-- [What is sockstorm?](./sfi_concepts_sockstorm.md)
+- [What is fuzzing?](./concepts_fuzzing.md)
+- [What is AFL++?](./concepts_afl.md)
+- [What is gurthang?](./concepts_gurthang.md)
 
 ### **Fuzzing Interface**
 
-- [How do I fuzz my server?](./sfi_how_to_fuzz.md) (`fuzz-pserv.py`)
-- [What do I do after fuzzing?](./sfi_after_fuzzing.md)
+- [How do I fuzz my server?](./how_to_fuzz.md) (`fuzz-pserv.py`)
+- [What do I do after fuzzing?](./after_fuzzing.md)
 
 ## Quickstart: Fuzzing your Server
 
