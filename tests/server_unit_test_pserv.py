@@ -2326,12 +2326,12 @@ class VideoStreaming(Doc_Print_Test_Case):
 server = None
 output_file_name = None
 
-from signal import SIGKILL
+from signal import SIGTERM
 def killserver(server):
     pid = server.pid
     try:
         pgid = os.getpgid(pid)
-        os.killpg(pgid, SIGKILL)
+        os.killpg(pgid, SIGTERM)
     except OSError:
         # process might already be dead, os.getpgid throw in this case
         pass
@@ -2342,7 +2342,7 @@ def killserver(server):
 def make_clean_up_testing(server):
     def clean_up_testing():
         try:
-            killserver(server)   # SIGKILL
+            killserver(server)   # SIGTERM
         except:
             pass
 
