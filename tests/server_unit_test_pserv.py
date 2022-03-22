@@ -877,11 +877,23 @@ class Single_Conn_Malicious_Case(Doc_Print_Test_Case):
             ["session", ".eJwlzsFKw0AQgOFXKXuuZXczm93psV4qFBEs2GAkzM7OJEVNIaG2IL67hV7_e_L9mk4nmQezVvqaZWm6YzFrQ947cJoLRslQAaDW3hlSql2JZKUUT5m9S1LFCEKRMaqVKFqSg0hellofmStWUATRANYGmzmRdRA4E6KU2musEFXZ5aBY2hiyoGRukPMs013z3hq-zMO571uzXLTm8TSOp2xxei8fq2ZowkO_2h6uQ3i7fu_plvnpdtsX2u_Gw_Nnc3zyf_8CpUfl.Yjo3NQ.m-n22sd9bMNXyvtXpIS6dZ85Cv4"]
         ]
 
+        # now, come up with various combinations of cookies to try
+        cookie_combos = []
+        for c1 in cookies:
+            combo = []
+            combo.append(c1)
+            cookie_combos.append([c1])
+            for c2 in cookies:
+                if c1 != c2:
+                    combo.append(c2)
+            cookie_combos.append(combo)
+
         # loop through each of the cookies
-        for cookie in cookies:
-            # clear the session cookies and set a new cookie
+        for combo in cookie_combos:
+            # clear the session cookies and set cookies
             self.session.cookies.clear()
-            self.session.cookies.set(cookie[0], cookie[1])
+            for cookie in combo:
+                self.session.cookies.set(cookie[0], cookie[1])
 
             # try making a GET /api/login request
             response = None
