@@ -858,6 +858,59 @@ class Single_Conn_Malicious_Case(Doc_Print_Test_Case):
         self.assertEqual(response.status_code, requests.codes.ok,
                          "Server failed to respond with private file despite being authenticated.")
 
+    def test_auth_wrong_cookie2(self):
+        """ Test Name: test_auth_wrong_cookie2
+        Number Connections: N/A
+        Procedure: Sends cookies that are actually taken from one a web browser
+        when connecting to courses.cs.vt.edu. They're valid cookies, but they
+        should not be recognized by the server as valid authentication.
+        Similar idea for test_auth_wrong_cookie. A failure here means the server
+        might have crashed or it served a private file despite without checking
+        for valid authentication.
+        """
+        # set up a few different cookies to try (no, these don't actually work
+        # - don't try any session hijacking with these cookies ;), we made
+        # sure they are invalid)
+        cookies = [
+            ["IDMSESSID", "9DD957C450BBCFE9D75022A05DC71D0E701FE23AF0DEE777090831C9FFD087FF0EE5704771BA11D02B3FA5CC13F20B4F8A6758A02768E160AE1E100A8D4BECCE"],
+            ["auth_token", "[\"hokiebird\"\054 \"Hokie Bird\"].Yhy5-g.HXxh5WxmTawBv_LHPaTLnXNkYiI|5b9df2848955b572910a6ff3d2c98d27febbe6a8949c18cde52c8c11c91ed5437f40accae8f8b77a41e335e83556a3670d5f5178d8ddd4f8eb83e1a82974ce4a"],
+            ["session", ".eJwlzsFKw0AQgOFXKXuuZXczm93psV4qFBEs2GAkzM7OJEVNIaG2IL67hV7_e_L9mk4nmQezVvqaZWm6YzFrQ947cJoLRslQAaDW3hlSql2JZKUUT5m9S1LFCEKRMaqVKFqSg0hellofmStWUATRANYGmzmRdRA4E6KU2musEFXZ5aBY2hiyoGRukPMs013z3hq-zMO571uzXLTm8TSOp2xxei8fq2ZowkO_2h6uQ3i7fu_plvnpdtsX2u_Gw_Nnc3zyf_8CpUfl.Yjo3NQ.m-n22sd9bMNXyvtXpIS6dZ85Cv4"]
+        ]
+
+        # loop through each of the cookies
+        for cookie in cookies:
+            # clear the session cookies and set a new cookie
+            self.session.cookies.clear()
+            self.session.cookies.set(cookie[0], cookie[1])
+
+            # try making a GET /api/login request
+            response = None
+            try:
+                response = self.session.get('http://%s:%s/api/login' % (self.hostname, self.port), timeout=2)
+            except requests.exception.RequestException:
+                raise AssertionError("The server did not respond within 2s")
+
+            # make sure the correct response code was sent
+            if response.status_code != requests.codes.ok:
+                raise AssertionError("The server responded with %d instead of 200 OK for a GET /api/login request" %
+                                     response.status_code)
+
+            # make sure the JSON data returned is empty
+            if response.text.strip() != "{}":
+                raise AssertionError("The server returned something other than an empty JSON object ({}) for a "
+                                     "GET /api/login request with invalid cookies. Received: '%s'" % response.text)
+
+            # now, try making a request for a private file
+            response = None
+            try:
+                response = self.session.get('http://%s:%s/private/secure.html' % (self.hostname, self.port), timeout=2)
+            except requests.exception.RequestException:
+                raise AssertionError("The server did not respond within 2s")
+
+            # make sure we didn't receive a 200 OK
+            if response.status_code == requests.codes.ok:
+                raise AssertionError("The server served a private file despite not being authenticated.")
+
 
 ##############################################################################
 ## Class: Single_Conn_Bad_Case
