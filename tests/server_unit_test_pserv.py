@@ -1981,6 +1981,227 @@ class Authentication(Doc_Print_Test_Case):
             # Close the session
             self.sessions[i].close()
 
+class VideoStreaming(Doc_Print_Test_Case):
+    """
+    Test cases for the /api/video endpoint and using Range requests to stream
+    videos and other files.
+    """
+
+    def __init__(self, testname, hostname, port):
+        """
+        Prepare the test case for creating connections.
+        """
+        super(VideoStreaming, self).__init__(testname)
+
+        self.hostname = hostname
+        self.port = port
+        self.nonvideos = ['index.html', 'js/jquery.min.js', 'css/jquery-ui.min.css']
+
+    def setUp(self):
+        """  Test Name: None -- setUp function\n\
+        Number Connections: N/A \n\
+        Procedure: Opens the HTTP connection to the server.  An error here \
+                   means the script was unable to create a connection to the \
+                   server.
+        """
+        # open the base directory and search through it for video files. We'll
+        # use these to compare against /api/video responses
+        self.vids = []
+        for root, dirs, files in os.walk(base_dir):
+            for fname in files:
+                # only consider .mp4 files
+                if fname.endswith(".mp4"):
+                    self.vids.append(os.path.join(root, fname))
+
+        # Create a requests session
+        self.session = requests.Session()
+
+    def tearDown(self):
+        """  Test Name: None -- tearDown function\n\
+        Number Connections: N/A \n\
+        Procedure: Closes the HTTP connection to the server.  An error here \
+                   means the server crashed after servicing the request from \
+                   the previous test.
+        """
+        # Close the HTTP connection
+        self.session.close()
+    
+    # Does a lower-case search for headers within a response's headers. If
+    # found, the first ocurrence is returned (the header's value is returned).
+    def find_header(self, response, name):
+        for header in response.headers:
+            if header.lower() == name.lower():
+                return response.headers[header]
+        return None
+
+    def test_api_video(self):
+        """ Test Name: test_api_video
+        Number Connections: N/A
+        Procedure: Tests the /api/video endpoint and ensures the server responds
+        with the correct information. A failure here means either /api/video is
+        unsupported entirely or there's an issue with the JSON data the server
+        send in a response to GET /api/video.
+        """
+
+        # build the URL for /api/video and make the GET request
+        url = "http://%s:%s/api/video" % (self.hostname, self.port)
+        response = None
+        # make a GET request for the file
+        try:
+            req = requests.Request('GET', url)
+            prepared_req = req.prepare()
+            prepared_req.url = url
+            response = self.session.send(prepared_req, timeout=2)
+        except requests.exceptions.RequestException:
+            raise AssertionError("The server did not respond within 2s")
+
+        # make sure the correct status code was received
+        if response.status_code != requests.codes.ok:
+            raise AssertionError("Server responded with %d instead of 200 OK when requested with /api/video" %
+                                 response.status_code)
+
+        # make sure the correct Content-Type is specified
+        content_type = self.find_header(response, "Content-Type")
+        content_expect = "application/json"
+        if content_type == None:
+            raise AssertionError("Server didn't respond with the Content-Type header when requested with /api/video")
+        if content_type.lower() != content_expect:
+            raise AssertionError("Server didn't respond with the correct Content-Type value when requested with /api/video. "
+                                 "Expected: %s, received: %s" % (content_expect, content_type))
+
+        # attempt to decode the JSON data from /api/video
+        jdata = None
+        try:
+            jdata = response.json()
+        except Exception as e:
+            raise AssertionError("Failed to decode the JSON data your server sent as a response to /api/video. "
+                                 "Error: %s" % str(e))
+        
+        # now we'll examine the JSON data and make sure it's formatted right
+        # [{"name": "v1.mp4", "size": 1512799}, {"name": "v2.mp4", "size": 9126406}]
+        if type(jdata) != list:
+            raise AssertionError("JSON data returned from /api/video must be in a list format (ex: [{\"a\": 1}, {\"b\": 2}])")
+        for entry in jdata:
+            # each entry should have two fields: "name" and "size"
+            if "name" not in entry or "size" not in entry:
+                raise AssertionError("Each JSON entry returned from /api/video must have a \"name\" and a \"size\"")
+        
+        # next, iterate over the videos *we* observed in the test root
+        # directory and ensure each one is present in the JSON data
+        base_dir_full = os.path.realpath(base_dir)
+        for expected in self.vids:
+            # stat the video file to retrieve its size in bytes
+            expected_size = os.path.getsize(expected)
+            # use the base directory to derive the correct string that should
+            # be placed in the JSON data
+            expected_str = expected.replace(base_dir_full, "")
+            if expected_str.startswith("/"):
+                expected_str = expected_str[1:]
+            
+            # search for the entry within the array, and thrown an error of we
+            # couldn't find it
+            entry = None
+            for e in jdata:
+                entry = e if e["name"] == expected_str else entry
+            if entry == None:
+                raise AssertionError("Failed to find \"%s\" in server's response to GET /api/video. Received:\n%s" %
+                                     (expected_str, json.dumps(jdata)))
+            
+            # ensure the reported size is what we expect
+            if entry["size"] != expected_size:
+                raise AssertionError("Incorrect size reported for \"%s\" in response to GET /api/video. Expected %d, received %d" %
+                                     (expected_str, expected_size, entry["size"]))
+
+    def test_accept_ranges_header(self):
+        """ Test Name: test_accept_ranges_header
+        Number Connections: N/A
+        Procedure: Makes a variety of requests to the web server and searches
+        for at least one occurrence of the Accept-Ranges header being sent back
+        in the server's response headers. A failure here means the server doesn't
+        appear to be sending the Accept-Ranges header in its responses.
+        """
+        # build a collection of URLs to try
+        url_prefix = "http://%s:%s" % (self.hostname, self.port)
+        resources = ["/", "/index.html", "/public/index.html", "/api/login", "/api/video", "/v1.mp4"]
+
+        # do the following for each URL
+        occurrences = 0
+        for resource in resources:
+            url = url_prefix + resource
+            response = None
+            # make a GET request for the particular resource
+            try:
+                req = requests.Request('GET', url)
+                prepared_req = req.prepare()
+                prepared_req.url = url
+                response = self.session.send(prepared_req, timeout=2)
+            except requests.exceptions.RequestException:
+                raise AssertionError("The server did not respond within 2s")
+            
+            # make sure the correct status code was received
+            if response.status_code != requests.codes.ok:
+                raise AssertionError("Server responded with %d instead of 200 OK when requested with %s" %
+                                     response.status_code, resource)
+            
+            # search the header dictionary (lowercase comparison) for Accept-Ranges
+            accept_ranges_expect = "bytes"
+            accept_ranges = self.find_header(response, "Accept-Ranges")
+            if accept_ranges != None:
+                occurrences += 1
+                # make sure the correct value is given ("bytes")
+                if "bytes" not in accept_ranges:
+                    raise AssertionError("Server responded with an unexpected Accept-Ranges values. "
+                                         "Expected: %s, received: %s" % (accept_ranges_expect, response.headers[header]))
+
+        # if no occurrences were found, throw an error
+        if occurrences == 0:
+            raise AssertionError("Failed to find the Accept-Ranges header in the server's responses.")
+
+    def test_video_get(self):
+        """ Test Name: test_video_get
+        Number Connections: N/A
+        Procedure: Makes a simple GET request for a video and checks headers,
+        content length, bytes, etc. A failure here means GET requests for
+        videos (WITHOUT Range requests) aren't performing properly.
+        """
+        # build a url to one of the videos in the test directory, then make a
+        # simple GET request
+        vid = os.path.basename(self.vids[0])
+        url = "http://%s:%s/%s" % (self.hostname, self.port, vid)
+        response = None
+        try:
+            req = requests.Request('GET', url)
+            prepared_req = req.prepare()
+            prepared_req.url = url
+            response = self.session.send(prepared_req, timeout=2)
+        except requests.exceptions.RequestException:
+            raise AssertionError("The server did not respond within 2s")
+        
+        # make sure the correct status code was received
+        if response.status_code != requests.codes.ok:
+            raise AssertionError("Server responded with %d instead of 200 OK when requested with a valid video" %
+                                    response.status_code)
+
+        # check for the content-type header
+        content_type = self.find_header(response, "Content-Type")
+        content_expect = "video/mp4"
+        if content_type == None:
+            raise AssertionError("Server didn't respond with the Content-Type header when requested with a valid video")
+        if content_type.lower() != content_expect:
+            raise AssertionError("Server didn't respond with the correct Content-Type value when requested with a valid video. "
+                                 "Expected: %s, received: %s" % (content_expect, content_type))
+
+        # check for the content-length header
+        content_length = self.find_header(response, "Content-Length")
+        content_length_expect = str(os.path.getsize(self.vids[0]))
+        if content_length == None:
+            raise AssertionError("Server didn't respond with the Content-Length header when requested with a valid video")
+        if content_length != content_length_expect:
+            raise AssertionError("Server didn't respond with the correct Content-Length value when requested with a valid video. "
+                                 "Expected: %s, received: %s" % (content_length_expect, content_length))
+
+        # TODO finish
+
 ###############################################################################
 # Globally define the Server object so it can be checked by all test cases
 ###############################################################################
@@ -2015,22 +2236,25 @@ grade_points_available = 95
 # 6 tests
 minreq_total = 25
 # 27 tests
-extra_total = 20
+extra_total = 15
 # 5 tests
-malicious_total = 20
+malicious_total = 15
 # 4 tests
 ipv6_total = 5
 # ? tests
 auth_total = 20
 # ? tests (html5 fallback)
 fallback_total = 5
+# ? tests (video features)
+video_total = 10
 
 
-def print_points(minreq, extra, malicious, ipv6, auth, fallback):
+def print_points(minreq, extra, malicious, ipv6, auth, fallback, video):
     """All arguments are fractions (out of 1)"""
     print("Minimum Requirements:         \t%2d/%2d" % (int(minreq * minreq_total), minreq_total))
     print("Authentication Functionality: \t%2d/%2d" % (int(auth * auth_total), auth_total))
     print("HTML5 Fallback Functionality: \t%2d/%2d" % (int(fallback * fallback_total), fallback_total))
+    print("Video Functionality:          \t%2d/%2d" % (int(video * video_total), video_total))
     print("IPv6 Functionality:           \t%2d/%2d" % (int(ipv6 * ipv6_total), ipv6_total))
     print("Extra Tests:                  \t%2d/%2d" % (int(extra * extra_total), extra_total))
     print("Robustness:                   \t%2d/%2d" % (int(malicious * malicious_total), malicious_total))
@@ -2080,7 +2304,7 @@ if __name__ == '__main__':
 
     alltests = [Single_Conn_Good_Case, Multi_Conn_Sequential_Case, Single_Conn_Bad_Case,
                 Single_Conn_Malicious_Case, Single_Conn_Protocol_Case, Access_Control,
-                Authentication, Fallback]
+                Authentication, Fallback, VideoStreaming]
 
 
     def findtest(tname):
@@ -2242,6 +2466,13 @@ process.
             if test_function.startswith("test_"):
                 html5_fallback_suite.addTest(Fallback(test_function, hostname, port))
 
+        # Test Suite for video streaming functionality. Add all tests from the
+        # VideoStreaming class.
+        video_suite = unittest.TestSuite()
+        for test_function in dir(VideoStreaming):
+            if test_function.startswith("test_"):
+                video_suite.addTest(VideoStreaming(test_function, hostname, port))
+
         # Test Suite for extra points, mostly testing error cases
         extra_tests_suite = unittest.TestSuite()
 
@@ -2282,7 +2513,7 @@ process.
                   "Please examine the above errors, the remaining tests\n" +
                   "will not be run until after the above tests pass.\n")
 
-            print_points(minreq_score, 0, 0, 0, 0, 0)
+            print_points(minreq_score, 0, 0, 0, 0, 0, 0)
             sys.exit()
 
         print('Beginning Authentication Tests')
@@ -2296,8 +2527,8 @@ process.
         test_results = unittest.TextTestRunner().run(auth_tests_suite)
 
         auth_score = max(0,
-                          F(auth_tests_suite.countTestCases() - len(test_results.errors) - len(test_results.failures),
-                            auth_tests_suite.countTestCases()))
+                         F(auth_tests_suite.countTestCases() - len(test_results.errors) - len(test_results.failures),
+                           auth_tests_suite.countTestCases()))
 
         print('Beginning HTML5 Fallback Tests')
         # kill the server and start it again with '-a' (to enable HTML5 fallback)
@@ -2311,6 +2542,19 @@ process.
         fallback_score = max(0,
                              F(html5_fallback_suite.countTestCases() - len(test_results.errors) - len(test_results.failures),
                                html5_fallback_suite.countTestCases()))
+
+        print('Beginning Video Streaming Tests')
+        # kill the server and restart it
+        killserver(server)
+        server.wait()
+        server = start_server()
+        time.sleep(3 if run_slow else 1)
+
+        # run the video streaming tests and compute a score
+        test_results = unittest.TextTestRunner().run(video_suite)
+        video_score = max(0,
+                          F(video_suite.countTestCases() - len(test_results.errors) - len(test_results.failures),
+                            video_suite.countTestCases()))
 
         def makeTestSuiteForHost(hostname):
             # IPv6 Test Suite
@@ -2395,7 +2639,7 @@ process.
                   "Please examine the above errors, the Malicious Tests\n" +
                   "will not be run until the above tests pass.\n")
 
-            print_points(minreq_score, extra_score, 0, ipv6_score, auth_score, fallback_score)
+            print_points(minreq_score, extra_score, 0, ipv6_score, auth_score, fallback_score, video_score)
             sys.exit()
 
         print("Now running the MALICIOUS Tests.  WARNING:  These tests will not necessarily run fast!")
@@ -2414,5 +2658,5 @@ process.
             print("\nYou have NOT passed one or more of the Malicious Tests.  " +
                   "Please examine the errors listed above.\n")
 
-        print_points(minreq_score, extra_score, robustness_score, ipv6_score, auth_score, fallback_score)
+        print_points(minreq_score, extra_score, robustness_score, ipv6_score, auth_score, fallback_score, video_score)
 
