@@ -2369,13 +2369,30 @@ video_total = 10
 
 def print_points(minreq, extra, malicious, ipv6, auth, fallback, video):
     """All arguments are fractions (out of 1)"""
-    print("Minimum Requirements:         \t%2d/%2d" % (int(minreq * minreq_total), minreq_total))
-    print("Authentication Functionality: \t%2d/%2d" % (int(auth * auth_total), auth_total))
-    print("HTML5 Fallback Functionality: \t%2d/%2d" % (int(fallback * fallback_total), fallback_total))
-    print("Video Functionality:          \t%2d/%2d" % (int(video * video_total), video_total))
-    print("IPv6 Functionality:           \t%2d/%2d" % (int(ipv6 * ipv6_total), ipv6_total))
-    print("Extra Tests:                  \t%2d/%2d" % (int(extra * extra_total), extra_total))
-    print("Robustness:                   \t%2d/%2d" % (int(malicious * malicious_total), malicious_total))
+    # compute individual scores
+    minreq_final = int(minreq * minreq_total)
+    auth_final = int(auth * auth_total)
+    fallback_final = int(fallback * fallback_total)
+    video_final = int(video * video_total)
+    ipv6_final = int(ipv6 * ipv6_total)
+    extra_final = int(extra * extra_total)
+    malicious_final = int(malicious * malicious_total)
+    # compute total scores
+    total = minreq_total + auth_total + fallback_total + video_total + ipv6_total + \
+            extra_total + malicious_total
+    total_final = minreq_final + auth_final + fallback_final + video_final + \
+                  ipv6_final + extra_final + malicious_final
+    
+    # print all scores, including the total
+    print("Minimum Requirements:         \t%2d/%2d" % (minreq_final, minreq_total))
+    print("Authentication Functionality: \t%2d/%2d" % (auth_final, auth_total))
+    print("HTML5 Fallback Functionality: \t%2d/%2d" % (fallback_final, fallback_total))
+    print("Video Functionality:          \t%2d/%2d" % (video_final, video_total))
+    print("IPv6 Functionality:           \t%2d/%2d" % (ipv6_final, ipv6_total))
+    print("Extra Tests:                  \t%2d/%2d" % (extra_final, extra_total))
+    print("Robustness:                   \t%2d/%2d" % (malicious_final, malicious_total))
+    print("-----")
+    print("TOTAL:                        \t%d/%d" % (total_final, total))
 
 
 ###############################################################################
