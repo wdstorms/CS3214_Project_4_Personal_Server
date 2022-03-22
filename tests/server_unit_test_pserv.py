@@ -2034,6 +2034,41 @@ class VideoStreaming(Doc_Print_Test_Case):
                 return response.headers[header]
         return None
 
+    # Takes in a file path (fpath) and the response object returned from the web
+    # server, and a start and end byte index, and compares the bytes requested.
+    # Returns True if they match, and False otherwise.
+    def compare_file_bytes(self, fpath, response, start, length):
+        # open the file for reading and seek to the starting point
+        fp = open(fpath, "rb")
+        fp.seek(start, 0)
+
+        # read small chunks at a time
+        chksz = 128
+        bread = 0
+        for chunk in response.iter_content(chunk_size=128):
+            chunk_len = len(chunk)
+            ebytes = fp.read(chunk_len)     # "expected bytes"
+
+            # if we didn't read enough bytes from the file, something must be
+            # up with the response's data
+            if len(ebytes) < chunk_len:
+                return False
+            
+            # add to the counter
+            bread += chunk_len
+            
+            # if the two byte arrays aren't equal, return False
+            if ebytes != chunk:
+                return False
+        
+        # if we didn't read enough bytes from the response, something is wrong
+        if bread < length:
+            return False
+
+        # close the file
+        fp.close()
+        return True
+
     def test_api_video(self):
         """ Test Name: test_api_video
         Number Connections: N/A
@@ -2193,14 +2228,97 @@ class VideoStreaming(Doc_Print_Test_Case):
 
         # check for the content-length header
         content_length = self.find_header(response, "Content-Length")
-        content_length_expect = str(os.path.getsize(self.vids[0]))
+        content_length_expect = os.path.getsize(self.vids[0])
         if content_length == None:
             raise AssertionError("Server didn't respond with the Content-Length header when requested with a valid video")
-        if content_length != content_length_expect:
+        if content_length != str(content_length_expect):
             raise AssertionError("Server didn't respond with the correct Content-Length value when requested with a valid video. "
                                  "Expected: %s, received: %s" % (content_length_expect, content_length))
 
-        # TODO finish
+
+        # now, we'll compare the actual video file with what was sent
+        if not self.compare_file_bytes(self.vids[0], response, 0, content_length_expect):
+            raise AssertionError("Server didn't send the correct bytes. Should have been the entire video file.")
+
+    def test_video_range_request(self):
+        """ Test Name: test_video_range_request
+        Number Connections: N/A
+        Procedure: Makes a GET request for a video and sends various Range
+        header values to test the server's ability to serve range requests.
+        A failure here means some (or all) cases of the server's Range request
+        handling isn't working properly.
+        """
+        # build a URL to the video we'll be GET'ing
+        vid = os.path.basename(self.vids[0])
+        vidsize = os.path.getsize(self.vids[0])
+        url = "http://%s:%s/%s" % (self.hostname, self.port, vid)
+        # set up a few range request values to test with the video
+        ranges = [[0, 1], [0, 100], [300, 500], [1000, -1], [-1, 1000]]
+
+        # iterate across each range array to test each one
+        for rg in ranges:
+            # build the Range header string
+            rg_left = "" if rg[0] == -1 else "%d" % rg[0]
+            rg_right = "" if rg[1] == -1 else "%d" % rg[1]
+            rgheader = "bytes=%s-%s" % (rg_left, rg_right)
+            print("TESTING: Range: %s" % rgheader)
+
+            # send a request with the Range header
+            response = None
+            try:
+                req = requests.Request('GET', url)
+                req.headers = {"Range": rgheader}
+                prepared_req = req.prepare()
+                prepared_req.url = url
+                response = self.session.send(prepared_req, timeout=2)
+            except requests.exceptions.RequestException:
+                raise AssertionError("The server did not respond within 2s")
+            
+            # make sure the correct status code was received
+            if response.status_code != requests.codes.partial_content:
+                raise AssertionError("Server responded with %d instead of 206 PARTIAL CONTENT when range-requested with a valid video" %
+                                     response.status_code)
+            
+            # check for the content-type header
+            content_type = self.find_header(response, "Content-Type")
+            content_expect = "video/mp4"
+            if content_type == None:
+                raise AssertionError("Server didn't respond with the Content-Type header when requested with a valid video")
+            if content_type.lower() != content_expect:
+                raise AssertionError("Server didn't respond with the correct Content-Type value when requested with a valid video. "
+                                    "Expected: %s, received: %s" % (content_expect, content_type))
+    
+            # check for the content-length header and make sure it's the correct
+            # value based on the current range value we're trying
+            content_length = self.find_header(response, "Content-Length")
+            content_length_expect = rg[1] - rg[0] + 1
+            if rg[0] == -1:
+                content_length_expect = rg[1]
+            elif rg[1] == -1:
+                content_length_expect = vidsize - rg[0]
+            if content_length == None:
+                raise AssertionError("Server didn't respond with the Content-Length header when requested with a valid video")
+            if content_length != str(content_length_expect):
+                raise AssertionError("Server didn't respond with the correct Content-Length value when requested with a valid video. "
+                                    "Expected: %s, received: %s" % (content_length_expect, content_length))
+
+            # check for the Content-Range header and make sure it's the correct
+            # value
+            content_range = self.find_header(response, "Content-Range")
+            byte_start = rg[0] if rg[0] != -1 else vidsize - rg[1]
+            content_range_expect = "bytes %d-%d/%d" % (byte_start, byte_start + content_length_expect, vidsize)
+            if content_range == None:
+                raise AssertionError("Server didn't respond with the Content-Range header when requested with a valid video")
+            if content_type.lower() != content_expect:
+                raise AssertionError("Server didn't respond with the correct Content-Range value when requested with a valid video. "
+                                    "Expected: '%s', received: '%s'" % (content_range_expect, content_range))
+
+            # finally, we'll compare the actual bytes that were received. They
+            # must match the exact bytes found in the original file
+            if not self.compare_file_bytes(self.vids[0], response, byte_start, content_length_expect):
+                raise AssertionError("Server didn't send the correct bytes. Should have been bytes %d-%d" %
+                                     (byte_start, byte_start + content_length_expect - 1))
+
 
 ###############################################################################
 # Globally define the Server object so it can be checked by all test cases
