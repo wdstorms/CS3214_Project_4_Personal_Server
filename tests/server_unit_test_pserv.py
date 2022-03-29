@@ -2515,14 +2515,164 @@ if __name__ == '__main__':
             if tname in dir(clazz):
                 return clazz
         return None
+    
+    # --------------------------- Test Categories ---------------------------- #
+    # before anything else, we'll set up a specification for testing categories
+    # and which unit test classes to into each. We do this *here* and not below
+    # so the 'list_tests' code below can accurately print things out. Not the
+    # best code organization, but we work with what we've got.
+    # First we'll set up one function for every test category, used to build a
+    # unit test suite object.
 
+    # Suite builder function for minimum requirements.
+    def make_suite_minreq(hostname, port):
+        min_req_suite = unittest.TestSuite()
 
+        # Add all of the tests from the class Single_Conn_Good_Case
+        for test_function in dir(Single_Conn_Good_Case):
+            if test_function.startswith("test_"):
+                min_req_suite.addTest(Single_Conn_Good_Case(test_function, hostname, port))
+
+        # In particular, add the two-connection test from Multi_Conn_Sequential_Case,
+        # and the 1.0 protocol check (early return check) from Single_Conn_Protocol_Case
+        min_req_suite.addTest(Multi_Conn_Sequential_Case("test_two_connections", hostname, port))
+        min_req_suite.addTest(Single_Conn_Protocol_Case("test_http_1_0_compliance", hostname, port))
+        return min_req_suite
+
+    # Suite builder function for authentication.
+    def make_suite_auth(hostname, port):
+        auth_tests_suite = unittest.TestSuite()
+
+        # Add all of the tests from the class Access_Control
+        for test_function in dir(Access_Control):
+            if test_function.startswith("test_"):
+                auth_tests_suite.addTest(Access_Control(test_function, hostname, port))
+
+        # Add all of the tests from the class Authentication
+        for test_function in dir(Authentication):
+            if test_function.startswith("test_"):
+                auth_tests_suite.addTest(Authentication(test_function, hostname, port))
+        return auth_tests_suite
+    
+    # Suite builder function for HTML5 fallback.
+    def make_suite_fallback(hostname, port):
+        # Test Suite to test HTML5 fallback functionality. Add all tests from
+        # the Fallback class.
+        html5_fallback_suite = unittest.TestSuite()
+        for test_function in dir(Fallback):
+            if test_function.startswith("test_"):
+                html5_fallback_suite.addTest(Fallback(test_function, hostname, port))
+        return html5_fallback_suite
+
+    # Suite builder function for video streaming.
+    def make_suite_video(hostname, port):
+        # Test Suite for video streaming functionality. Add all tests from the
+        # VideoStreaming class.
+        video_suite = unittest.TestSuite()
+        for test_function in dir(VideoStreaming):
+            if test_function.startswith("test_"):
+                video_suite.addTest(VideoStreaming(test_function, hostname, port))
+        return video_suite
+
+    # Suite builder function for IPv6 support.
+    def make_suite_ipv6(hostname, port):
+        ipv6_test_suite = unittest.TestSuite()
+        # Add all of the tests from the class Single_Conn_Good_Case
+        for test_function in dir(Single_Conn_Good_Case):
+            if test_function.startswith("test_"):
+                ipv6_test_suite.addTest(Single_Conn_Good_Case(test_function, hostname, port))
+        return ipv6_test_suite
+
+    # Suite builder function for extra tests.
+    def make_suite_extra(hostname, port):
+        # Test Suite for extra points, mostly testing error cases
+        extra_tests_suite = unittest.TestSuite()
+
+        # Add all of the tests from the class Multi_Conn_Sequential_Case
+        for test_function in dir(Multi_Conn_Sequential_Case):
+            if test_function.startswith("test_"):
+                extra_tests_suite.addTest(Multi_Conn_Sequential_Case(test_function, hostname, port))
+
+        # Add all of the tests from the class Single_Conn_Bad_Case
+        for test_function in dir(Single_Conn_Bad_Case):
+            if test_function.startswith("test_"):
+                extra_tests_suite.addTest(Single_Conn_Bad_Case(test_function, hostname, port))
+
+        # In particular, add the 1.1 protocol persistent connection check from Single_Conn_Protocol_Case
+        extra_tests_suite.addTest(Single_Conn_Protocol_Case("test_http_1_1_compliance", hostname, port))
+        return extra_tests_suite
+
+    # Suite builder function for malicious tests.
+    def make_suite_malicious(hostname, port):
+        # Malicious Test Suite
+        malicious_tests_suite = unittest.TestSuite()
+
+        # Add all of the tests from the class Single_Conn_Malicious_Case
+        for test_function in dir(Single_Conn_Malicious_Case):
+            if test_function.startswith("test_"):
+                malicious_tests_suite.addTest(Single_Conn_Malicious_Case(test_function, hostname, port))
+        return malicious_tests_suite
+
+    # main JSON for test categories
+    test_categories = [
+        {
+            "key": "minreq",
+            "name": "Minimum Requirements",
+            "points": minreq_total,
+            "maker": make_suite_minreq
+        },
+        {
+            "key": "auth",
+            "name": "Authentication",
+            "points": auth_total,
+            "maker": make_suite_auth
+        },
+        {
+            "key": "fallback",
+            "name": "HTML5 Fallback",
+            "points": fallback_total,
+            "maker": make_suite_fallback
+        },
+        {
+            "key": "video",
+            "name": "Video Streaming",
+            "points": video_total,
+            "maker": make_suite_video
+        },
+        {
+            "key": "ipv6",
+            "name": "IPv6 Support",
+            "points": ipv6_total,
+            "maker": make_suite_ipv6
+        },
+        {
+            "key": "extra",
+            "name": "Extra Corner Cases",
+            "points": extra_total,
+            "maker": make_suite_extra
+        },
+        {
+            "key": "malicious",
+            "name": "Robustness/Malicious",
+            "points": malicious_total,
+            "maker": make_suite_malicious
+        }
+    ]
+    # ------------------------------------------------------------------------ #
+
+    # if the student requested to list all tests, do so here and exit
     if list_tests:
-        for clazz in alltests:
-            print("In:", clazz.__name__)
-            for test in [m for m in dir(clazz) if m.startswith("test_")]:
-                print("\t", test)
-
+        for category in test_categories:
+            # build the test suite
+            suite = category["maker"]("NO_HOSTNAME_NEEDED", "NO_PORT_NEEDED")
+            print("Category: %s" % category["name"])
+            # print all tests within
+            for test in suite:
+                # get the test ID and split it up by "."
+                tid = test.id()
+                tid_pieces = tid.split(".")
+                print("\t%s" % tid_pieces[2])
+        # exit - we're done
         sys.exit(0)
 
     if server_path is None:
@@ -2549,7 +2699,7 @@ if __name__ == '__main__':
 
     # Authentication token expiry
     auth_token_expiry = '2'
-
+    
     def start_server(preargs = [], postargs = []):
         args = preargs + [server_path, "-p", str(port), "-R", base_dir] + postargs
         output_file = None
@@ -2565,7 +2715,7 @@ if __name__ == '__main__':
             # Open the server on this machine
             server = subprocess.Popen(args, preexec_fn = make_new_pgrp,
                                       stdout=output_file, stderr=subprocess.STDOUT)
-        elif verbose == False:
+        elif verbose == True:
             # open the server with stdout unspecified (by default it will go to
             # the terminal).
             server = subprocess.Popen(args, preexec_fn = make_new_pgrp)
@@ -2613,7 +2763,6 @@ process.
     print("Your server has started successfully.  Now to begin testing.")
     # If an individual test was requested, find that test and only add it.  If no
     # tests are found of that name, error and exit.
-    print('should be running one test')
     if individual_test is not None:
         single_test_suite = unittest.TestSuite()
         testclass = findtest(individual_test)
@@ -2627,11 +2776,17 @@ process.
             server.wait()
             server = start_server(postargs=['-a'])
             time.sleep(3 if run_slow else 1)
+
+        single_test_class = testclass(individual_test, hostname, port)
         if testclass:
-            single_test_suite.addTest(testclass(individual_test, hostname, port))
+            single_test_suite.addTest(single_test_class)
         else:
             print("The test \"" + individual_test + "\" was not found in the test classes. Use -l.")
             sys.exit(1)
+
+        # print information about the test to the user
+        print("Running a single test: %s. Brief description:\n%s" %
+              (single_test_class.id().split(".")[2], single_test_class.shortDescription()))
 
         # Run the single test test suite and store the results
         test_results = unittest.TextTestRunner().run(single_test_suite)
@@ -2642,71 +2797,16 @@ process.
             print("Test: " + individual_test + " failed.")
 
     else:
-
-        # Test Suite for the minimum requirements
-        min_req_suite = unittest.TestSuite()
-
-        # Add all of the tests from the class Single_Conn_Good_Case
-        for test_function in dir(Single_Conn_Good_Case):
-            if test_function.startswith("test_"):
-                min_req_suite.addTest(Single_Conn_Good_Case(test_function, hostname, port))
-
-        # In particular, add the two-connection test from Multi_Conn_Sequential_Case,
-        # and the 1.0 protocol check (early return check) from Single_Conn_Protocol_Case
-        min_req_suite.addTest(Multi_Conn_Sequential_Case("test_two_connections", hostname, port))
-        min_req_suite.addTest(Single_Conn_Protocol_Case("test_http_1_0_compliance", hostname, port))
-
-        # Test Suite to test JWT/authentication functionality
-        auth_tests_suite = unittest.TestSuite()
-
-        # Add all of the tests from the class Access_Control
-        for test_function in dir(Access_Control):
-            if test_function.startswith("test_"):
-                auth_tests_suite.addTest(Access_Control(test_function, hostname, port))
-
-        # Add all of the tests from the class Authentication
-        for test_function in dir(Authentication):
-            if test_function.startswith("test_"):
-                auth_tests_suite.addTest(Authentication(test_function, hostname, port))
-
-        # Test Suite to test HTML5 fallback functionality. Add all tests from
-        # the Fallback class.
-        html5_fallback_suite = unittest.TestSuite()
-        for test_function in dir(Fallback):
-            if test_function.startswith("test_"):
-                html5_fallback_suite.addTest(Fallback(test_function, hostname, port))
-
-        # Test Suite for video streaming functionality. Add all tests from the
-        # VideoStreaming class.
-        video_suite = unittest.TestSuite()
-        for test_function in dir(VideoStreaming):
-            if test_function.startswith("test_"):
-                video_suite.addTest(VideoStreaming(test_function, hostname, port))
-
-        # Test Suite for extra points, mostly testing error cases
-        extra_tests_suite = unittest.TestSuite()
-
-        # Add all of the tests from the class Multi_Conn_Sequential_Case
-        for test_function in dir(Multi_Conn_Sequential_Case):
-            if test_function.startswith("test_"):
-                extra_tests_suite.addTest(Multi_Conn_Sequential_Case(test_function, hostname, port))
-
-        # Add all of the tests from the class Single_Conn_Bad_Case
-        for test_function in dir(Single_Conn_Bad_Case):
-            if test_function.startswith("test_"):
-                extra_tests_suite.addTest(Single_Conn_Bad_Case(test_function, hostname, port))
-
-        # In particular, add the 1.1 protocol persistent connection check from Single_Conn_Protocol_Case
-        extra_tests_suite.addTest(Single_Conn_Protocol_Case("test_http_1_1_compliance", hostname, port))
-
-        # Malicious Test Suite
-        malicious_tests_suite = unittest.TestSuite()
-
-        # Add all of the tests from the class Single_Conn_Malicious_Case
-        for test_function in dir(Single_Conn_Malicious_Case):
-            if test_function.startswith("test_"):
-                malicious_tests_suite.addTest(Single_Conn_Malicious_Case(test_function, hostname, port))
-
+        
+        # build all test suites
+        min_req_suite = make_suite_minreq(hostname, port)
+        auth_tests_suite = make_suite_auth(hostname, port)
+        html5_fallback_suite = make_suite_fallback(hostname, port)
+        video_suite = make_suite_video(hostname, port)
+        extra_tests_suite = make_suite_extra(hostname, port)
+        malicious_tests_suite = make_suite_malicious(hostname, port)
+         
+        # start running the tests 
         print('Beginning the Minimum Requirement Tests')
         time.sleep(3 if run_slow else 1)
         # Run the minimum requirements test suite and store the results
@@ -2765,23 +2865,13 @@ process.
         video_score = max(0,
                           F(video_suite.countTestCases() - len(test_results.errors) - len(test_results.failures),
                             video_suite.countTestCases()))
-
-        def makeTestSuiteForHost(hostname):
-            # IPv6 Test Suite
-            ipv6_test_suite = unittest.TestSuite()
-            # Add all of the tests from the class Single_Conn_Good_Case
-            for test_function in dir(Single_Conn_Good_Case):
-                if test_function.startswith("test_"):
-                    ipv6_test_suite.addTest(Single_Conn_Good_Case(test_function, hostname, port))
-
-            return ipv6_test_suite
-
+  
         if runIPv6:
             #
             # Now run IPv6 in various combinations
             #
             # check that base server can accept IPv6 connections.
-            ts1 = makeTestSuiteForHost(ipv6_host)
+            ts1 = make_suite_ipv6(ipv6_host, port)
             testcases, points = 0, 0
 
             def run_and_count(msg, ts1):
@@ -2802,23 +2892,22 @@ process.
 
             server = restart_server(preargs=['env', 'REVERSEIPADDR=1', f'LD_PRELOAD={ld_preload}'])
 
-            ts2 = makeTestSuiteForHost(ipv6_host)
+            ts2 = make_suite_ipv6(ipv6_host, port)
             run_and_count("Checking that server can accept IPv6 connections if addresses are in reverse", ts2)
 
             # check that server can accept IPv6 connections if only IPv6 addresses are listed
             server = restart_server(preargs=['env', 'SKIPIPV4=1', f'LD_PRELOAD={ld_preload}'])
 
-            ts3 = makeTestSuiteForHost(ipv6_host)
+            ts3 = make_suite_ipv6(ipv6_host, port)
             run_and_count("Checking that server can accept IPv6 connections if no IPv4 addresses", ts3)
 
             # check that server can accept IPv4 connections if only IPv4 addresses are listed
             server = restart_server(preargs=['env', 'SKIPIPV6=1', f'LD_PRELOAD={ld_preload}'])
 
-            ts4 = makeTestSuiteForHost(hostname)
+            ts4 = make_suite_ipv6(hostname, port)
             run_and_count("Checking that server can accept IPv4 connections if no IPv6 addresses", ts4)
 
             ipv6_score = max(0, F(points, testcases))
-#
             if points == testcases:
                 print("\nCongratulations! IPv6 support appears to work!\n")
             else:
