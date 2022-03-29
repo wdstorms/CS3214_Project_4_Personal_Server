@@ -2420,6 +2420,7 @@ def make_clean_up_testing(server):
 # best code organization, but we work with what we've got.
 # First we'll set up one function for every test category, used to build a
 # unit test suite object.
+
 # Suite builder function for minimum requirements.
 def make_suite_minreq(hostname, port):
     min_req_suite = unittest.TestSuite()
@@ -2432,6 +2433,7 @@ def make_suite_minreq(hostname, port):
     min_req_suite.addTest(Multi_Conn_Sequential_Case("test_two_connections", hostname, port))
     min_req_suite.addTest(Single_Conn_Protocol_Case("test_http_1_0_compliance", hostname, port))
     return min_req_suite
+
 # Suite builder function for authentication.
 def make_suite_auth(hostname, port):
     auth_tests_suite = unittest.TestSuite()
@@ -2454,6 +2456,7 @@ def make_suite_fallback(hostname, port):
         if test_function.startswith("test_"):
             html5_fallback_suite.addTest(Fallback(test_function, hostname, port))
     return html5_fallback_suite
+
 # Suite builder function for video streaming.
 def make_suite_video(hostname, port):
     # Test Suite for video streaming functionality. Add all tests from the
@@ -2463,6 +2466,7 @@ def make_suite_video(hostname, port):
         if test_function.startswith("test_"):
             video_suite.addTest(VideoStreaming(test_function, hostname, port))
     return video_suite
+
 # Suite builder function for IPv6 support.
 def make_suite_ipv6(hostname, port):
     ipv6_test_suite = unittest.TestSuite()
@@ -2471,6 +2475,7 @@ def make_suite_ipv6(hostname, port):
         if test_function.startswith("test_"):
             ipv6_test_suite.addTest(Single_Conn_Good_Case(test_function, hostname, port))
     return ipv6_test_suite
+
 # Suite builder function for extra tests.
 def make_suite_extra(hostname, port):
     # Test Suite for extra points, mostly testing error cases
@@ -2486,6 +2491,7 @@ def make_suite_extra(hostname, port):
     # In particular, add the 1.1 protocol persistent connection check from Single_Conn_Protocol_Case
     extra_tests_suite.addTest(Single_Conn_Protocol_Case("test_http_1_1_compliance", hostname, port))
     return extra_tests_suite
+
 # Suite builder function for malicious tests.
 def make_suite_malicious(hostname, port):
     # Malicious Test Suite
