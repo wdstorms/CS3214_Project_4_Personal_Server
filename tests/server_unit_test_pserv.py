@@ -2413,23 +2413,146 @@ def make_clean_up_testing(server):
 
     return clean_up_testing
 
+# --------------------------- Test Categories ---------------------------- #
+# before anything else, we'll set up a specification for testing categories
+# and which unit test classes to into each. We do this *here* and not below
+# so the 'list_tests' code below can accurately print things out. Not the
+# best code organization, but we work with what we've got.
+# First we'll set up one function for every test category, used to build a
+# unit test suite object.
+# Suite builder function for minimum requirements.
+def make_suite_minreq(hostname, port):
+    min_req_suite = unittest.TestSuite()
+    # Add all of the tests from the class Single_Conn_Good_Case
+    for test_function in dir(Single_Conn_Good_Case):
+        if test_function.startswith("test_"):
+            min_req_suite.addTest(Single_Conn_Good_Case(test_function, hostname, port))
+    # In particular, add the two-connection test from Multi_Conn_Sequential_Case,
+    # and the 1.0 protocol check (early return check) from Single_Conn_Protocol_Case
+    min_req_suite.addTest(Multi_Conn_Sequential_Case("test_two_connections", hostname, port))
+    min_req_suite.addTest(Single_Conn_Protocol_Case("test_http_1_0_compliance", hostname, port))
+    return min_req_suite
+# Suite builder function for authentication.
+def make_suite_auth(hostname, port):
+    auth_tests_suite = unittest.TestSuite()
+    # Add all of the tests from the class Access_Control
+    for test_function in dir(Access_Control):
+        if test_function.startswith("test_"):
+            auth_tests_suite.addTest(Access_Control(test_function, hostname, port))
+    # Add all of the tests from the class Authentication
+    for test_function in dir(Authentication):
+        if test_function.startswith("test_"):
+            auth_tests_suite.addTest(Authentication(test_function, hostname, port))
+    return auth_tests_suite
+
+# Suite builder function for HTML5 fallback.
+def make_suite_fallback(hostname, port):
+    # Test Suite to test HTML5 fallback functionality. Add all tests from
+    # the Fallback class.
+    html5_fallback_suite = unittest.TestSuite()
+    for test_function in dir(Fallback):
+        if test_function.startswith("test_"):
+            html5_fallback_suite.addTest(Fallback(test_function, hostname, port))
+    return html5_fallback_suite
+# Suite builder function for video streaming.
+def make_suite_video(hostname, port):
+    # Test Suite for video streaming functionality. Add all tests from the
+    # VideoStreaming class.
+    video_suite = unittest.TestSuite()
+    for test_function in dir(VideoStreaming):
+        if test_function.startswith("test_"):
+            video_suite.addTest(VideoStreaming(test_function, hostname, port))
+    return video_suite
+# Suite builder function for IPv6 support.
+def make_suite_ipv6(hostname, port):
+    ipv6_test_suite = unittest.TestSuite()
+    # Add all of the tests from the class Single_Conn_Good_Case
+    for test_function in dir(Single_Conn_Good_Case):
+        if test_function.startswith("test_"):
+            ipv6_test_suite.addTest(Single_Conn_Good_Case(test_function, hostname, port))
+    return ipv6_test_suite
+# Suite builder function for extra tests.
+def make_suite_extra(hostname, port):
+    # Test Suite for extra points, mostly testing error cases
+    extra_tests_suite = unittest.TestSuite()
+    # Add all of the tests from the class Multi_Conn_Sequential_Case
+    for test_function in dir(Multi_Conn_Sequential_Case):
+        if test_function.startswith("test_"):
+            extra_tests_suite.addTest(Multi_Conn_Sequential_Case(test_function, hostname, port))
+    # Add all of the tests from the class Single_Conn_Bad_Case
+    for test_function in dir(Single_Conn_Bad_Case):
+        if test_function.startswith("test_"):
+            extra_tests_suite.addTest(Single_Conn_Bad_Case(test_function, hostname, port))
+    # In particular, add the 1.1 protocol persistent connection check from Single_Conn_Protocol_Case
+    extra_tests_suite.addTest(Single_Conn_Protocol_Case("test_http_1_1_compliance", hostname, port))
+    return extra_tests_suite
+# Suite builder function for malicious tests.
+def make_suite_malicious(hostname, port):
+    # Malicious Test Suite
+    malicious_tests_suite = unittest.TestSuite()
+    # Add all of the tests from the class Single_Conn_Malicious_Case
+    for test_function in dir(Single_Conn_Malicious_Case):
+        if test_function.startswith("test_"):
+            malicious_tests_suite.addTest(Single_Conn_Malicious_Case(test_function, hostname, port))
+    return malicious_tests_suite
+
+# main JSON for test categories
+test_categories = {
+    "minreq": {
+        "name": "Minimum Requirements",
+        "points": 25,
+        "maker": make_suite_minreq
+    },
+    "auth": {
+        "name": "Authentication Functionality",
+        "points": 20,
+        "maker": make_suite_auth
+    },
+    "fallback": {
+        "name": "HTML5 Fallback Functionality",
+        "points": 5,
+        "maker": make_suite_fallback
+    },
+    "video": {
+        "name": "Video Streaming Functionality",
+        "points": 10,
+        "maker": make_suite_video
+    },
+    "ipv6": {
+        "name": "IPv6 Support",
+        "points": 5,
+        "maker": make_suite_ipv6
+    },
+    "extra": {
+        "name": "Extra Corner Cases",
+        "points": 15,
+        "maker": make_suite_extra
+    },
+    "malicious": {
+        "name": "Robustness/Malicious",
+        "points": 15,
+        "maker": make_suite_malicious
+    }
+}
+# ------------------------------------------------------------------------ #
+
 
 # Grade distribution constants
-grade_points_available = 95
+#grade_points_available = 95
 # 6 tests
-minreq_total = 25
+minreq_total = test_categories["minreq"]["points"]
 # 27 tests
-extra_total = 15
+extra_total = test_categories["extra"]["points"]
 # 5 tests
-malicious_total = 15
+malicious_total = test_categories["malicious"]["points"]
 # 4 tests
-ipv6_total = 5
+ipv6_total = test_categories["ipv6"]["points"]
 # ? tests
-auth_total = 20
+auth_total = test_categories["auth"]["points"]
 # ? tests (html5 fallback)
-fallback_total = 5
+fallback_total = test_categories["fallback"]["points"]
 # ? tests (video features)
-video_total = 10
+video_total = test_categories["video"]["points"]
 
 
 def print_points(minreq, extra, malicious, ipv6, auth, fallback, video):
@@ -2449,15 +2572,15 @@ def print_points(minreq, extra, malicious, ipv6, auth, fallback, video):
                   ipv6_final + extra_final + malicious_final
     
     # print all scores, including the total
-    print("Minimum Requirements:         \t%2d/%2d" % (minreq_final, minreq_total))
-    print("Authentication Functionality: \t%2d/%2d" % (auth_final, auth_total))
-    print("HTML5 Fallback Functionality: \t%2d/%2d" % (fallback_final, fallback_total))
-    print("Video Functionality:          \t%2d/%2d" % (video_final, video_total))
-    print("IPv6 Functionality:           \t%2d/%2d" % (ipv6_final, ipv6_total))
-    print("Extra Tests:                  \t%2d/%2d" % (extra_final, extra_total))
-    print("Robustness:                   \t%2d/%2d" % (malicious_final, malicious_total))
+    print("%-30s\t%2d/%2d" % (test_categories["minreq"]["name"], minreq_final, minreq_total))
+    print("%-30s\t%2d/%2d" % (test_categories["auth"]["name"], auth_final, auth_total))
+    print("%-30s\t%2d/%2d" % (test_categories["fallback"]["name"], fallback_final, fallback_total))
+    print("%-30s\t%2d/%2d" % (test_categories["video"]["name"], video_final, video_total))
+    print("%-30s\t%2d/%2d" % (test_categories["ipv6"]["name"], ipv6_final, ipv6_total))
+    print("%-30s\t%2d/%2d" % (test_categories["extra"]["name"], extra_final, extra_total))
+    print("%-30s\t%2d/%2d" % (test_categories["malicious"]["name"], malicious_final, malicious_total))
     print("-----")
-    print("TOTAL:                        \t%d/%d" % (total_final, total))
+    print("%-30s\t%d/%d" % ("TOTAL", total_final, total))
 
 
 ###############################################################################
@@ -2515,154 +2638,11 @@ if __name__ == '__main__':
             if tname in dir(clazz):
                 return clazz
         return None
-    
-    # --------------------------- Test Categories ---------------------------- #
-    # before anything else, we'll set up a specification for testing categories
-    # and which unit test classes to into each. We do this *here* and not below
-    # so the 'list_tests' code below can accurately print things out. Not the
-    # best code organization, but we work with what we've got.
-    # First we'll set up one function for every test category, used to build a
-    # unit test suite object.
-
-    # Suite builder function for minimum requirements.
-    def make_suite_minreq(hostname, port):
-        min_req_suite = unittest.TestSuite()
-
-        # Add all of the tests from the class Single_Conn_Good_Case
-        for test_function in dir(Single_Conn_Good_Case):
-            if test_function.startswith("test_"):
-                min_req_suite.addTest(Single_Conn_Good_Case(test_function, hostname, port))
-
-        # In particular, add the two-connection test from Multi_Conn_Sequential_Case,
-        # and the 1.0 protocol check (early return check) from Single_Conn_Protocol_Case
-        min_req_suite.addTest(Multi_Conn_Sequential_Case("test_two_connections", hostname, port))
-        min_req_suite.addTest(Single_Conn_Protocol_Case("test_http_1_0_compliance", hostname, port))
-        return min_req_suite
-
-    # Suite builder function for authentication.
-    def make_suite_auth(hostname, port):
-        auth_tests_suite = unittest.TestSuite()
-
-        # Add all of the tests from the class Access_Control
-        for test_function in dir(Access_Control):
-            if test_function.startswith("test_"):
-                auth_tests_suite.addTest(Access_Control(test_function, hostname, port))
-
-        # Add all of the tests from the class Authentication
-        for test_function in dir(Authentication):
-            if test_function.startswith("test_"):
-                auth_tests_suite.addTest(Authentication(test_function, hostname, port))
-        return auth_tests_suite
-    
-    # Suite builder function for HTML5 fallback.
-    def make_suite_fallback(hostname, port):
-        # Test Suite to test HTML5 fallback functionality. Add all tests from
-        # the Fallback class.
-        html5_fallback_suite = unittest.TestSuite()
-        for test_function in dir(Fallback):
-            if test_function.startswith("test_"):
-                html5_fallback_suite.addTest(Fallback(test_function, hostname, port))
-        return html5_fallback_suite
-
-    # Suite builder function for video streaming.
-    def make_suite_video(hostname, port):
-        # Test Suite for video streaming functionality. Add all tests from the
-        # VideoStreaming class.
-        video_suite = unittest.TestSuite()
-        for test_function in dir(VideoStreaming):
-            if test_function.startswith("test_"):
-                video_suite.addTest(VideoStreaming(test_function, hostname, port))
-        return video_suite
-
-    # Suite builder function for IPv6 support.
-    def make_suite_ipv6(hostname, port):
-        ipv6_test_suite = unittest.TestSuite()
-        # Add all of the tests from the class Single_Conn_Good_Case
-        for test_function in dir(Single_Conn_Good_Case):
-            if test_function.startswith("test_"):
-                ipv6_test_suite.addTest(Single_Conn_Good_Case(test_function, hostname, port))
-        return ipv6_test_suite
-
-    # Suite builder function for extra tests.
-    def make_suite_extra(hostname, port):
-        # Test Suite for extra points, mostly testing error cases
-        extra_tests_suite = unittest.TestSuite()
-
-        # Add all of the tests from the class Multi_Conn_Sequential_Case
-        for test_function in dir(Multi_Conn_Sequential_Case):
-            if test_function.startswith("test_"):
-                extra_tests_suite.addTest(Multi_Conn_Sequential_Case(test_function, hostname, port))
-
-        # Add all of the tests from the class Single_Conn_Bad_Case
-        for test_function in dir(Single_Conn_Bad_Case):
-            if test_function.startswith("test_"):
-                extra_tests_suite.addTest(Single_Conn_Bad_Case(test_function, hostname, port))
-
-        # In particular, add the 1.1 protocol persistent connection check from Single_Conn_Protocol_Case
-        extra_tests_suite.addTest(Single_Conn_Protocol_Case("test_http_1_1_compliance", hostname, port))
-        return extra_tests_suite
-
-    # Suite builder function for malicious tests.
-    def make_suite_malicious(hostname, port):
-        # Malicious Test Suite
-        malicious_tests_suite = unittest.TestSuite()
-
-        # Add all of the tests from the class Single_Conn_Malicious_Case
-        for test_function in dir(Single_Conn_Malicious_Case):
-            if test_function.startswith("test_"):
-                malicious_tests_suite.addTest(Single_Conn_Malicious_Case(test_function, hostname, port))
-        return malicious_tests_suite
-
-    # main JSON for test categories
-    test_categories = [
-        {
-            "key": "minreq",
-            "name": "Minimum Requirements",
-            "points": minreq_total,
-            "maker": make_suite_minreq
-        },
-        {
-            "key": "auth",
-            "name": "Authentication",
-            "points": auth_total,
-            "maker": make_suite_auth
-        },
-        {
-            "key": "fallback",
-            "name": "HTML5 Fallback",
-            "points": fallback_total,
-            "maker": make_suite_fallback
-        },
-        {
-            "key": "video",
-            "name": "Video Streaming",
-            "points": video_total,
-            "maker": make_suite_video
-        },
-        {
-            "key": "ipv6",
-            "name": "IPv6 Support",
-            "points": ipv6_total,
-            "maker": make_suite_ipv6
-        },
-        {
-            "key": "extra",
-            "name": "Extra Corner Cases",
-            "points": extra_total,
-            "maker": make_suite_extra
-        },
-        {
-            "key": "malicious",
-            "name": "Robustness/Malicious",
-            "points": malicious_total,
-            "maker": make_suite_malicious
-        }
-    ]
-    # ------------------------------------------------------------------------ #
-
+     
     # if the student requested to list all tests, do so here and exit
     if list_tests:
-        for category in test_categories:
+        for key in test_categories:
+            category = test_categories[key]
             # build the test suite
             suite = category["maker"]("NO_HOSTNAME_NEEDED", "NO_PORT_NEEDED")
             print("Category: %s" % category["name"])
