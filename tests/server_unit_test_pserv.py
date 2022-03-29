@@ -267,6 +267,7 @@ def usage():
         -t testname     Run a test by itself, its name given as testname
         -l              List available tests
         -6 host         Hostname of IPv6 localhost (default: localhost6)
+        -v              Send output from the server to stdout
         -o outputfile   Send output from the server to an output file
           """)
 
@@ -2326,7 +2327,6 @@ class VideoStreaming(Doc_Print_Test_Case):
             rg_left = "" if rg[0] == -1 else "%d" % rg[0]
             rg_right = "" if rg[1] == -1 else "%d" % rg[1]
             rgheader = "bytes=%s-%s" % (rg_left, rg_right)
-            print("TESTING: Range: %s" % rgheader)
 
             # send a request with the Range header
             response = None
@@ -2467,7 +2467,7 @@ def print_points(minreq, extra, malicious, ipv6, auth, fallback, video):
 if __name__ == '__main__':
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "ndhs:t:o:l6:w", \
+        opts, args = getopt.getopt(sys.argv[1:], "ndhs:t:vo:l6:w", \
                                    ["help"])
     except getopt.GetoptError as err:
         # print help information and exit:
@@ -2477,6 +2477,7 @@ if __name__ == '__main__':
 
     server_path = None
     run_slow = False
+    verbose = False
     individual_test = None
     runIPv6 = True
     list_tests = False
@@ -2495,6 +2496,8 @@ if __name__ == '__main__':
             list_tests = True
         elif o in ("-w"):
             run_slow = True
+        elif o in ("-v"):
+            verbose = True
         elif o in ("-o"):
             output_file_name = a
         elif o in ("-6"):
@@ -2562,8 +2565,15 @@ if __name__ == '__main__':
             # Open the server on this machine
             server = subprocess.Popen(args, preexec_fn = make_new_pgrp,
                                       stdout=output_file, stderr=subprocess.STDOUT)
-        else:
+        elif verbose == False:
+            # open the server with stdout unspecified (by default it will go to
+            # the terminal).
             server = subprocess.Popen(args, preexec_fn = make_new_pgrp)
+        else:
+            # if the above fail, put stdout and stderr into /dev/null
+            server = subprocess.Popen(args, preexec_fn = make_new_pgrp,
+                                      stdout=subprocess.DEVNULL,
+                                      stderr=subprocess.DEVNULL)
 
         # Register the atexit function to shutdown the server on Python exit
         atexit.register(make_clean_up_testing(server))
