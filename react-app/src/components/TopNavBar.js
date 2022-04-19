@@ -38,10 +38,10 @@ const DropDowns = (props) => {
             <DropdownToggle nav caret>
               {dropdown.label}
             </DropdownToggle>
-            <DropdownMenu right>
+            <DropdownMenu end>
                 {dropdown.entries.map((item) =>
                   <DropdownItem key={item.path}>
-                    <NavLink to={item.path} key={item.path} activeClassName="active" tag={RRNavLink}>
+                    <NavLink to={item.path} key={item.path} tag={RRNavLink}>
                         {item.label}
                     </NavLink>
                   </DropdownItem>
@@ -70,7 +70,7 @@ const NavBar = (props) => {
           <Nav className="mr-auto" navbar>
             {menus.topbar.map((item) =>
               <NavItem key={item.path}>
-                <NavLink to={item.path} activeClassName="active" tag={RRNavLink}>
+                <NavLink to={item.path} tag={RRNavLink}>
                   {item.label}
                 </NavLink>
               </NavItem>
@@ -86,11 +86,11 @@ const NavBar = (props) => {
 
             {isLoaded(user) ?
               <NavItem>
-                <NavLink activeClassName="active" tag={RRNavLink} to={props.logoutUrl}>Logout ({user.sub})</NavLink>
+                <NavLink tag={RRNavLink} to={props.logoutUrl}>Logout ({user.sub})</NavLink>
               </NavItem>
               :
               <NavItem>
-                <NavLink activeClassName="active" tag={RRNavLink} to={props.loginUrl}>Login</NavLink>
+                <NavLink tag={RRNavLink} to={props.loginUrl}>Login</NavLink>
               </NavItem>
             }
           </Nav>

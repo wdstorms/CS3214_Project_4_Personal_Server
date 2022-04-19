@@ -14,8 +14,8 @@ const PlayerPage = () => {
 
   const dispatch = useDispatch();
 
-  let videos = useSelector((state) => state.video);
-  let [state, setState] = useState({
+  const videos = useSelector((state) => state.video);
+  const [state, setState] = useState({
     url: ""
   });
   const handleChange = (event) => {
@@ -61,7 +61,10 @@ const PlayerPage = () => {
                 </ButtonToolbar>
               </Col>
               <Col>
-                or select one from the list of
+                <FormGroup>
+                  <Label for="ddmenu">
+                    or select one from the list of
+                  </Label>
                 {!isLoaded(videos) ? (
                   <Spinner size="lg" color="primary" />
                 ) : (
@@ -79,6 +82,7 @@ const PlayerPage = () => {
                     </DropdownMenu>
                   </Dropdown>
                 )}
+                </FormGroup>
               </Col>
             </Row>
           </Container>

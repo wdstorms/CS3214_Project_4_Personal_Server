@@ -5,9 +5,10 @@ import { Card, CardHeader, CardBody, Container, Row, Col } from 'reactstrap';
 import { login } from '../actions/auth.js';
 import { isLoading, isLoaded } from '../util/loadingObject'
 import LoginForm from '../components/forms/LoginForm';
-import { Redirect } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 
-const LoginPage = (props) => {
+const LoginPage = () => {
+  const location = useLocation();
   const dispatch = useDispatch();
   function doLogin({username, password}) {
     dispatch(login(username, password));
@@ -15,9 +16,9 @@ const LoginPage = (props) => {
 
   const user = useSelector(state => state.auth);
   const isAuthenticated = isLoaded(user);
-  const { from } = props.location.state || { from: { pathname: "/" } };
+  const { from } = location.state || { from: { pathname: "/" } };
   if (isAuthenticated) {
-    return (<Redirect to={from} />);
+    return (<Navigate to={from} />);
   }
 
   return (

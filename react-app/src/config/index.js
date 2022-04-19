@@ -34,4 +34,7 @@ const apiPrefix = `${publicUrl}/api`
 console.log(`Read configuration.  Public_URL: ${publicUrl}`)
 // console.log(`apiPrefix:  ${apiPrefix}`)
 
-export default { menus, apiPrefix, publicUrl }
+export default { menus,
+    branding: "CS3214 Demo App 2022",
+    apiPrefix, publicUrl
+}

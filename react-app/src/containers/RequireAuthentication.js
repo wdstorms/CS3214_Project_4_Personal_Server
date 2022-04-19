@@ -4,33 +4,27 @@
  */
 
 import React from 'react';
-import { Redirect, withRouter } from 'react-router';
-import { connect } from 'react-redux';
+import { Navigate, useLocation } from 'react-router';
+import { useSelector } from 'react-redux';
 import { isLoaded } from '../util/loadingObject';
-
-function mapStateToProps(state) {
-  return {
-    user: state.auth
-  };
-}
 
 export default function RequireAuthentication(Component) {
   const wrapper = props => {
-    if (isLoaded(props.user)) {
+    const location = useLocation();
+    const user = useSelector(state => state.auth);
+    if (isLoaded(user)) {
       return <Component {...props} />;
     } else {
       return (
-        <Redirect
-          to={{
-            pathname: `/login`,
-            state: {
-              from: props.history.location
-            }
-          }}
+        <Navigate
+            to={`/login`}
+            state = {{
+                from: location
+            }}
         />
       );
     }
   };
 
-  return withRouter(connect(mapStateToProps)(wrapper));
+  return wrapper;
 }

@@ -9,16 +9,19 @@ const PrivatePage = () => {
   return (<Container>
     <h1>Welcome to a private page</h1>
     <Row className="mt-3">
-      You have successfully authenticated as user&nbsp;<span>{user.sub}</span>.
+      <p>
+        You have successfully authenticated as user&nbsp;<tt>{user.sub}</tt>.
+      </p>
     </Row>
     <Row className="mt-3">
-      Your token was issued at {new Date(user.iat*1000).toString()}, 
-      it expires {new Date(user.exp*1000).toString()}
+      <p>Your token was issued at {new Date(user.iat*1000).toString()},
+      it expires {new Date(user.exp*1000).toString()}</p>
     </Row>
     <Row className="mt-3">
-      This page is "private" only inasmuch as the front-end does not
-      display it to unauthenticated users.  In a fully-fledged app,
-      this page would now perform API requests that require authentication.
+      <p> This page is "private" only inasmuch as the front-end does not
+          display it to unauthenticated users.  In a fully-fledged app,
+          this page would now perform API requests that require authentication.
+      </p>
     </Row>
   </Container>);
 }

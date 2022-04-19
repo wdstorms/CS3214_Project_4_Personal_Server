@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { Provider } from 'react-redux';
 import { BrowserRouter as Router } from 'react-router-dom';
 
@@ -22,6 +23,7 @@ toastr.options.positionClass = 'toast-bottom-right';
 store.dispatch(checklogin());
 
 const mountPoint = document.getElementById('root');
+const root = createRoot(mountPoint);
 const rootNode = (
   <Provider store={store}>
     <Router basename={config.publicUrl}>
@@ -29,6 +31,6 @@ const rootNode = (
     </Router>
   </Provider>
 );
-ReactDOM.render(rootNode, mountPoint);
+root.render(rootNode);
 
 window.jQuery = jQuery; // for toastr

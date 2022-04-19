@@ -9,9 +9,9 @@ import HomePage from '../pages/HomePage';
 import PrivatePage from '../pages/PrivatePage';
 import PlayerPage from '../pages/PlayerPage';
 
-import { Switch, Route, withRouter } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 
-import config from '../config/';
+import config from '../config';
 
 /** AppContainer renders the navigation bar on top and its
  * children in the main part of the page.  Its children will
@@ -19,22 +19,22 @@ import config from '../config/';
  */
 const AppContainer = (props) => (
     <div>
-      <TopNavBar branding="CS3214 Demo App 2021"
+      <TopNavBar branding={config.branding}
                   menus={config.menus} 
                   user={props.user} 
                   loginUrl={`/login`}
                   logoutUrl={`/logout`}
         />
       <div className="container-fluid marketing">
-          <Switch>
-              <Route exact path={`/`} component={HomePage} />
-              <Route path={`/logout`} component={Logout} />
-              <Route path={`/login`} component={LoginPage} />
-              <Route path={`/public`} component={PublicPage} />
-              <Route path={`/protected`} component={PrivatePage} />
-              <Route path={`/player`} component={PlayerPage} />
-              <Route component={NotFoundPage} />
-          </Switch>
+          <Routes>
+              <Route exact path={`/`} element={<HomePage />} />
+              <Route path={`/logout`} element={<Logout />} />
+              <Route path={`/login`} element={<LoginPage />} />
+              <Route path={`/public`} element={<PublicPage />} />
+              <Route path={`/protected`} element={<PrivatePage />} />
+              <Route path={`/player`} element={<PlayerPage />} />
+              <Route element={<NotFoundPage />} />
+          </Routes>
       </div>
     </div>
 );
@@ -51,4 +51,4 @@ function mapDispatchToProps(dispatch) {
   };
 }
 
-export default withRouter(connect(mapStateToProps, mapDispatchToProps)(AppContainer));
+export default connect(mapStateToProps, mapDispatchToProps)(AppContainer);
