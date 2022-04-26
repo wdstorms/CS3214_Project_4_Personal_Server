@@ -2262,7 +2262,7 @@ class VideoStreaming(Doc_Print_Test_Case):
                 # make sure the correct value is given ("bytes")
                 if "bytes" not in accept_ranges:
                     raise AssertionError("Server responded with an unexpected Accept-Ranges values. "
-                                         "Expected: %s, received: %s" % (accept_ranges_expect, response.headers[header]))
+                                         "Expected: %s, received: %s" % (accept_ranges_expect, response.headers["Accept-Ranges"]))
 
         # if no occurrences were found, throw an error
         if occurrences == 0:
@@ -2762,6 +2762,12 @@ process.
     if individual_test is not None:
         single_test_suite = unittest.TestSuite()
         testclass = findtest(individual_test)
+
+        # make sure the class was found
+        if testclass == None:
+            print("Couldn't find a test with the name '%s'" % individual_test)
+            sys.exit(1)
+
         if testclass == Authentication:
             killserver(server)
             server.wait()
