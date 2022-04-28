@@ -95,7 +95,9 @@ def run_connection_check_empty_login(http_conn, hostname):
     server_response = http_conn.getresponse()
 
     # Check the response status code
-    assert server_response.status == OK, "Server failed to respond"
+    assert server_response.status == OK, "Server failed to respond. "
+            "This test will fail until persistent connections are implemented (i.e. HTTP/1.1 support). "
+            "We recommend you implement this before moving forward."
 
     # Check the data included in the server's response
     assert check_empty_login_respnse(server_response.read().decode('utf-8')), \
@@ -1196,7 +1198,8 @@ class Multi_Conn_Sequential_Case(Doc_Print_Test_Case):
         """  Test Name: test_two_connections\n\
         Number Connections: 2 \n\
         Procedure: Run 2 connections simultaneously for simple GET requests:\n\
-            GET /api/login HTTP/1.1
+                        GET /api/login HTTP/1.1
+                   NOTE: this test requires HTTP/1.1 persistent connection support.
         """
 
         # Append two connections to the list
@@ -1220,10 +1223,11 @@ class Multi_Conn_Sequential_Case(Doc_Print_Test_Case):
 
 
     def test_four_connections(self):
-        """  Test Name: test_two_connections\n\
+        """  Test Name: test_four_connections\n\
         Number Connections: 4 \n\
         Procedure: Run 4 connections simultaneously for simple GET requests:\n\
-            GET /api/login HTTP/1.1
+                        GET /api/login HTTP/1.1
+                   NOTE: this test requires HTTP/1.1 persistent connection support.
         """
 
         # Append four connections to the list
@@ -1243,10 +1247,11 @@ class Multi_Conn_Sequential_Case(Doc_Print_Test_Case):
             run_connection_check_empty_login(http_conn, self.hostname)
 
     def test_eight_connections(self):
-        """  Test Name: test_two_connections\n\
+        """  Test Name: test_eight_connections\n\
         Number Connections: 8 \n\
         Procedure: Run 8 connections simultaneously for simple GET requests:\n\
-            GET /api/login HTTP/1.1
+                        GET /api/login HTTP/1.1
+                   NOTE: this test requires HTTP/1.1 persistent connection support.
         """
 
         # Append eight connections to the list
