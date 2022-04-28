@@ -1722,9 +1722,9 @@ class Access_Control(Doc_Print_Test_Case):
             content_type = self.find_header(response, "Content-Type")
             content_expect = "application/json"
             if content_type == None:
-                raise AssertionError("Server didn't respond with the Content-Type header when sent a GET request to /api/login")
+                raise AssertionError("Server didn't respond with the Content-Type header when sent a request to /api/login")
             if content_type.lower() != content_expect:
-                raise AssertionError("Server didn't respond with the correct Content-Type value when sent a GET request to /api/login. "
+                raise AssertionError("Server didn't respond with the correct Content-Type value when sent a request to /api/login. "
                                      "Expected: '%s', received: '%s'" % (content_expect, content_type))
 
         # first, we'll build the /api/login url
