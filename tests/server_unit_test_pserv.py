@@ -95,8 +95,8 @@ def run_connection_check_empty_login(http_conn, hostname):
     server_response = http_conn.getresponse()
 
     # Check the response status code
-    assert server_response.status == OK, "Server failed to respond. "
-            "This test will fail until persistent connections are implemented (i.e. HTTP/1.1 support). "
+    assert server_response.status == OK, "Server failed to respond. " \
+            "This test will fail until persistent connections are implemented (i.e. HTTP/1.1 support). " \
             "We recommend you implement this before moving forward."
 
     # Check the data included in the server's response
@@ -2012,6 +2012,7 @@ class Authentication(Doc_Print_Test_Case):
             self.sessions.append(requests.Session())
 
         for i in range(30):
+            # ----------------------- Login JSON Check ----------------------- #
             # Login using the default credentials
             try:
                 response = self.sessions[i].post('http://%s:%s/api/login' % (self.hostname, self.port),
@@ -2027,19 +2028,13 @@ class Authentication(Doc_Print_Test_Case):
                 # Convert the response to JSON
                 data = response.json()
 
-                # Verify that the JWT contains 'iat'
+                # ensure all expected fields are present
                 assert 'iat' in data, "Could not find the claim 'iat' in the JSON object."
-
-                # Verify that the JWT contains 'iat'
                 assert 'exp' in data, "Could not find the claim 'exp' in the JSON object."
-
-                # Verify that the JWT contains 'sub'
                 assert 'sub' in data, "Could not find the claim 'sub' in the JSON object."
 
-                # Verify that the 'iat' claim to is a valid date from self.current_year
+                # verify that the two timestamps are valid dates
                 assert datetime.fromtimestamp(data['iat']).year == self.current_year, "'iat' returned is not a valid date"
-
-                # Verify that the 'exp' claim to is a valid date from self.current_year
                 assert datetime.fromtimestamp(data['exp']).year == self.current_year, "'exp' returned is not a valid date"
 
                 # Verify that the subject claim to is set to the right username
@@ -2048,6 +2043,34 @@ class Authentication(Doc_Print_Test_Case):
             except ValueError:
                 raise AssertionError('The login API did not return a valid JSON object')
 
+            # --------------------- Login GET JSON Check --------------------- #
+            # send a GET request to retrieve the same claims as above
+            try:
+                response = self.sessions[i].get('http://%s:%s/api/login' % (self.hostname, self.port),
+                                                timeout=2)
+            except requests.exceptions.RequestException:
+                raise AssertionError("The server did not respond within 2s")
+
+            try:
+                # Convert the response to JSON
+                data = response.json()
+
+                # ensure all expected fields are present
+                assert 'iat' in data, "Could not find the claim 'iat' in the JSON object."
+                assert 'exp' in data, "Could not find the claim 'exp' in the JSON object."
+                assert 'sub' in data, "Could not find the claim 'sub' in the JSON object."
+                
+                # Verify that the two timestamps are valid dates from self.current_year
+                assert datetime.fromtimestamp(data['iat']).year == self.current_year, "'iat' returned is not a valid date"
+                assert datetime.fromtimestamp(data['exp']).year == self.current_year, "'exp' returned is not a valid date"
+
+                # Verify that the subject claim to is set to the right username
+                assert data['sub'] == self.username, "The subject claim 'sub' should be set to %s" % self.username
+
+            except ValueError:
+                raise AssertionError('The login GET API did not return a valid JSON object')
+
+            
             # Sleep for a short duration before testing again
             time.sleep(random.random() / 10.0)
 
@@ -2299,7 +2322,7 @@ class VideoStreaming(Doc_Print_Test_Case):
         """
         # build a collection of URLs to try
         url_prefix = "http://%s:%s" % (self.hostname, self.port)
-        resources = ["/", "/index.html", "/public/index.html", "/api/login", "/api/video", "/v1.mp4"]
+        resources = ["/index.html", "/public/index.html", "/v1.mp4"]
 
         # do the following for each URL
         occurrences = 0
