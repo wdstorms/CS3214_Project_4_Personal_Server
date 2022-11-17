@@ -2,6 +2,10 @@
  * Quick demo of how to use libjwt using a HS256.
  *
  * @author gback, CS 3214, Spring 2018, updated Spring 2021
+ * Added Jansson demo Fall'22
+ *
+ * I included the necessary free() operations here which
+ * are needed in a long-running server.
  */
 #include <jwt.h>
 #include <stdlib.h>
@@ -9,6 +13,7 @@
 #include <string.h>
 #include <time.h>
 #include <errno.h>
+#include <jansson.h>
 
 static const char * NEVER_EMBED_A_SECRET_IN_CODE = "supa secret";
 
@@ -56,6 +61,7 @@ main()
     if (encoded == NULL)
         die("jwt_encode_str", ENOMEM);
 
+    jwt_free(mytoken);
     printf("encoded as %s\nTry entering this at jwt.io\n", encoded);
 
     jwt_t *ymtoken;
@@ -65,9 +71,32 @@ main()
     if (rc)
         die("jwt_decode", rc);
 
+    free(encoded);
     char *grants = jwt_get_grants_json(ymtoken, NULL); // NULL means all
     if (grants == NULL)
         die("jwt_get_grants_json", ENOMEM);
 
+    jwt_free(ymtoken);
     printf("redecoded: %s\n", grants);
+    
+    // an example of how to use Jansson
+    json_error_t error;
+    json_t *jgrants = json_loadb(grants, strlen(grants), 0, &error);
+    if (jgrants == NULL)
+        die("json_loadb", EINVAL);
+
+    free (grants);
+
+    json_int_t exp, iat;
+    const char *sub;
+    rc = json_unpack(jgrants, "{s:I, s:I, s:s}", 
+            "exp", &exp, "iat", &iat, "sub", &sub);
+    if (rc == -1)
+        die("json_unpack", EINVAL);
+
+    printf ("exp: %lld\n", exp);
+    printf ("iat: %lld\n", iat);
+    printf ("sub: %s\n", sub);
+
+    json_decref(jgrants);
 }

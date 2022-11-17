@@ -62,6 +62,7 @@ usage(char * av0)
         "  -p port      port number to bind to\n"
         "  -R rootdir   root directory from which to serve files\n"
         "  -e seconds   expiration time for tokens in seconds\n"
+        "  -a           enable HTML5 fallback\n"
         "  -h           display this help\n"
         , av0);
     exit(EXIT_FAILURE);

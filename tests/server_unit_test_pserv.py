@@ -61,27 +61,6 @@ def get_socket_connection(hostname, port):
     else:
         return sock
 
-
-def run_connection_check_loadavg(http_conn, hostname):
-    """
-    Run a check of the connection for validity, using a well-formed
-    request for /loadavg and checking it after receiving it.
-    """
-
-    # GET request for the object /loadavg
-    http_conn.request("GET", "/loadavg", headers={"Host": hostname})
-
-    # Get the server's response
-    server_response = http_conn.getresponse()
-
-    # Check the response status code
-    assert server_response.status == OK, "Server failed to respond"
-
-    # Check the data included in the server's response
-    assert check_loadavg_response(server_response.read().decode('utf-8')), \
-        "loadavg check failed"
-
-
 def run_connection_check_empty_login(http_conn, hostname):
     """
     Run a check of the connection for validity, using a well-formed
@@ -107,7 +86,7 @@ def run_404_check(http_conn, obj, hostname):
     requesting a non-existent URL object.
     """
 
-    # GET request for the object /loadavg
+    # GET request for obj
     http_conn.request("GET", obj, headers={"Host": hostname})
 
     # Get the server's response
@@ -117,27 +96,6 @@ def run_404_check(http_conn, obj, hostname):
     assert server_response.status == NOT_FOUND, \
         "Server failed to respond with a 404 status for obj=" + obj + ", gave response: " + str(server_response.status)
     server_response.read()
-
-
-def run_query_check(http_conn, request, req_object, callback, hostname):
-    """
-    Checks that the server properly processes the query string passed to it.
-    """
-
-    http_conn.request("GET", request, headers={"Host": hostname})
-    server_response = http_conn.getresponse()
-    assert server_response.status == OK, "Server failed to respond"
-
-    if callback is None:
-        if req_object == "loadavg":
-            assert check_loadavg_response(server_response.read().decode('utf-8')), \
-                "loadavg check failed"
-        else:
-            assert check_meminfo_response(server_response.read().decode('utf-8')), \
-                "meminfo check failed"
-    else:
-        assert check_callback_response(server_response.read().decode('utf-8'),
-                                       callback, req_object), "callback check failed"
 
 
 def run_method_check(http_conn, method, hostname):
@@ -164,92 +122,6 @@ def print_response(response):
     lines = response.split("\n")
     for line in lines:
         print(line.strip())
-
-
-def check_loadavg_response(response):
-    """Check that the response to a loadavg request generated the correctly
-    formatted output.  Returns true if it executes properly, throws an
-    AssertionError if it does not execute properly or another error if json
-    is unable to decode the response."""
-
-    try:
-        data = json.loads(response.strip())
-    except ValueError as msg:
-        raise AssertionError("Invalid JSON object.  Received: " + response)
-
-    assert len(data) == 3, "Improper number of data items returned"
-
-    assert 'total_threads' in data, "total_threads element missing"
-    assert 'loadavg' in data, "loadavg element missing"
-    assert 'running_threads' in data, "running_threads element missing"
-
-    assert len(data['loadavg']) == 3, 'Improper number of data items in \
-        loadavg'
-
-    return True
-
-
-def check_meminfo_response(response):
-    """Check that the response to a meminfo request generated the correctly
-    formatted output.  Returns true if it executes properly, throws an
-    AssertionError if it does not execute properly or another error if json
-    is unable to decode the response."""
-
-    try:
-        data = json.loads(response.strip())
-    except ValueError as msg:
-        raise AssertionError("Invalid JSON object.  Received: " + response)
-
-    for line in open("/proc/meminfo"):
-        entry = re.split(":?\s+", line)
-        assert entry[0] in data, entry[0] + " key is missing"
-
-        try:
-            int(data[entry[0]])
-        except (TypeError, ValueError):
-            raise AssertionError("a non-integer was passed to meminfo")
-
-    return True
-
-
-def check_callback_response(response, callback, req_obj):
-    """Check that the response to a req_obj request with callback function
-    callback generated the correctly formatted output.  Returns true if it 
-    executes properly, throws an AssertionError if it does not execute properly
-    or another error if json is unable to decode the response."""
-    callback.replace(' ', '')
-    response.replace(' ', '')
-    assert response[0:len(callback) + 1] == callback + "(", 'callback incorrect, was: ' + response[0:len(
-        callback) + 1] + ' , expected: ' + callback + '('
-    assert response[len(response) - 1] == ")", 'missing close parenthesis'
-
-    if req_obj == "meminfo":
-        check_meminfo_response(response[len(callback) + 1:len(response) - 1])
-    elif req_obj == "loadavg":
-        check_loadavg_response(response[len(callback) + 1:len(response) - 1])
-    else:
-        return False
-
-    return True
-
-
-def check_meminfo_change(response1, response2, key, delta, safety_margin=0):
-    """Check that a specific value in meminfo has changed by at least some amount.
-    Used by allocanon and freeanon tests. Returns true if it executes properly,
-    throws an AssertionError if it does not execute properly or another error
-    if json is unable to decode the response."""
-
-    check_meminfo_response(response1)
-    check_meminfo_response(response2)
-
-    data1 = json.loads(response1.strip())
-    data2 = json.loads(response2.strip())
-
-    if delta >= 0:
-        return float(data2[key]) - float(data1[key]) > delta * (1 - safety_margin)
-    else:
-        return float(data2[key]) - float(data1[key]) < delta * (1 - safety_margin)
-
 
 def check_empty_login_respnse(response):
     return response.strip() == "{}"
@@ -385,7 +257,7 @@ class Single_Conn_Protocol_Case(Doc_Print_Test_Case):
             pass
 
         sock.send(encode("\r\n"))
-        # If there is a HTTP response, it should be a valid /loadavg
+        # If there is a HTTP response, it should be a valid /login
         # response.
         data = ""
 
@@ -1313,13 +1185,13 @@ class Single_Conn_Good_Case(Doc_Print_Test_Case):
             print("The server has crashed.  Please investigate.")
 
     def test_login_get(self):
-        """  Test Name: test_loadavg_no_callback\n\
+        """  Test Name: test_login_get\n\
         Number Connections: One \n\
         Procedure: Simple GET request:\n\
             GET /api/login HTTP/1.1
         """
 
-        # GET request for the object /loadavg
+        # GET request for the object /api/login
         self.http_connection.request("GET", "/api/login")
 
         # Get the server's response
@@ -2005,6 +1877,7 @@ class Authentication(Doc_Print_Test_Case):
                 response = self.sessions[i].post('http://%s:%s/api/login' % (self.hostname, self.port),
                                              json={'username': self.username, 'password': self.password},
                                              timeout=2)
+
             except requests.exceptions.RequestException:
                 raise AssertionError("The server did not respond within 2s")
 
@@ -2016,6 +1889,12 @@ class Authentication(Doc_Print_Test_Case):
 
             for cookie in self.sessions[i].cookies:
                 try:
+                    self.assertEquals(cookie.path, "/", "Cookie path should be /")
+                    self.assertTrue("HttpOnly" in cookie._rest, "Cookie is not http only.")
+                    maxage = cookie.expires - time.mktime(datetime.now().timetuple())
+                    if abs(maxage - int(auth_token_expiry)) > 1:
+                        raise AssertionError(f"Cookie's Max-Age is {maxage} should be {auth_token_expiry}")
+
                     encoded_data = cookie.value.split('.')[1]
 
                     # Try to decode the payload

@@ -4,7 +4,7 @@ PORT=10000
 
 # to test against a working implementation (and see the intended responses)
 # change this variable, e.g.
-# use URL=http://theta.cs.vt.edu:3000/
+#URL=http://hazelnut.rlogin:12345
 URL=http://localhost:${PORT}
 
 # the file in which curl stores cookies across runs
@@ -34,8 +34,17 @@ curl -v \
 curl -v \
     ${URL}/private/secret.txt
 
-# this should succeed since credentials are included
+# this should succeed since credentials are included (via the cookie jar)
 curl -v \
     -b ${COOKIEJAR} \
     ${URL}/private/secret.txt
 
+# now log out
+curl -v -X POST \
+    -c ${COOKIEJAR} \
+    ${URL}/api/logout
+
+# this should fail since the cookie should have been removed from the cookie jar
+curl -v \
+    -b ${COOKIEJAR} \
+    ${URL}/private/secret.txt
