@@ -20,6 +20,8 @@
 #include <fcntl.h>
 #include <linux/limits.h>
 #include <regex.h>
+#include <jansson.h>
+#include <jwt.h>
 
 #include "http.h"
 #include "hexdump.h"
@@ -33,6 +35,7 @@
 #define STARTS_WITH(field_name, header) \
     (!strncasecmp(field_name, header, sizeof(header) - 1))
 
+bool is_auth = false;
 /* Parse HTTP request line, setting req_method, req_path, and req_version. */
 static bool
 http_parse_request(struct http_transaction *ta)
@@ -354,7 +357,58 @@ handle_api(struct http_transaction *ta)
 {
     if (ta->req_method == HTTP_POST) {
         char *body = bufio_offset2ptr(ta->client->bufio, ta->req_body);
-        hexdump(body, ta->req_content_len);
+        json_t *json_obj = json_loadb(body, ta->req_content_len, 0, NULL);
+        char* attempted_user;
+        char* attempted_pwd;
+        int rc = json_unpack(json_obj, "{s:s, s:s}", "username", &attempted_user, "password", &attempted_pwd);
+        if (rc == -1){ //error
+
+
+        }
+        else{
+            //check
+            int check_pwd = strcmp(attempted_pwd, "thepassword");
+            int check_user = strcmp(attempted_user, "user0");
+
+            if (check_pwd == 0 && check_user == 0){ //correct
+
+                is_auth = true;
+
+                jwt_t *mytoken;
+                jwt_new(&mytoken);
+
+                //add grants
+                rc = jwt_add_grant(mytoken, "sub", "user0");
+                time_t now = time(NULL);
+                rc = jwt_add_grant_int(mytoken, "iat", now);
+                long exp_value = now + 3600 * 24;
+                rc = jwt_add_grant_int(mytoken, "exp", exp_value);
+
+                //append string version of json body (cookie)
+                //auth-token=sdjhsdgjtrdfhdrjhgersbd
+                rc = jwt_set_alg(mytoken, JWT_ALG_HS256, 
+                (unsigned char *)attempted_pwd, //is key username?
+                strlen(attempted_pwd));
+
+                //rc = jwt_dump_fp(mytoken, stdout, 1); // prints the json body so far
+
+                char *encoded = jwt_encode_str(mytoken); //encoded using HMAC 
+                
+                //fmt: <cookie-name>=<cookie-value>; Path=<path-value>; Max-Age=<number>; HttpOnly
+                http_add_header(&ta->resp_headers, attempted_pwd, "{s=s; s=s; s=I; s}", "auth token", &encoded, "Path", "/", "Max-Age", exp_value, "HttpOnly");
+
+                hexdump(body, ta->req_content_len);
+                //return encoded; //what do we return here
+            }
+            else {
+                return send_error(ta, HTTP_PERMISSION_DENIED, "Wrong Username or Password\n");
+            }
+        }
+        //hexdump(body, ta->req_content_len);
+        printf("end");
+    }
+    else if (ta->req_method == HTTP_GET){
+
     }
     return send_error(ta, HTTP_NOT_FOUND, "API not implemented");
 }
@@ -386,8 +440,8 @@ http_handle_transaction(struct http_client *self)
             return false;
 
         // To see the body, use this:
-        char *body = bufio_offset2ptr(ta.client->bufio, ta.req_body);
-        hexdump(body, ta.req_content_len);
+        //char *body = bufio_offset2ptr(ta.client->bufio, ta.req_body);
+        //hexdump(body, ta.req_content_len);
     }
 
     buffer_init(&ta.resp_headers, 1024);
@@ -396,6 +450,7 @@ http_handle_transaction(struct http_client *self)
 
     bool rc = false;
     char *req_path = bufio_offset2ptr(ta.client->bufio, ta.req_path);
+    // do .. stuff here
     if (STARTS_WITH(req_path, "/api")) {
         rc = handle_api(&ta);
     } else
