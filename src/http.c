@@ -19,6 +19,7 @@
 #include <time.h>
 #include <fcntl.h>
 #include <linux/limits.h>
+#include <regex.h>
 
 #include "http.h"
 #include "hexdump.h"
@@ -273,6 +274,12 @@ guess_mime_type(char *filename)
 
     if (!strcasecmp(suffix, ".js"))
         return "text/javascript";
+    
+    if (!strcasecmp(suffix, ".css"))
+        return "text/css";
+    
+    if (!strcasecmp(suffix, ".mp4"))
+        return "video/mp4";
 
     return "text/plain";
 }
@@ -284,6 +291,16 @@ handle_static_asset(struct http_transaction *ta, char *basedir)
     char fname[PATH_MAX];
 
     char *req_path = bufio_offset2ptr(ta->client->bufio, ta->req_path);
+
+    // if you find ../ in req_path send permission denied
+    int i = 0;
+    while (i < strlen(req_path)) {
+        if (req_path[i] == '.' && req_path[i+1] == '.') {
+            return send_error(ta, HTTP_PERMISSION_DENIED, "Permission denied.");
+        }
+        i++;
+    }
+
     // The code below is vulnerable to an attack.  Can you see
     // which?  Fix it to avoid indirect object reference (IDOR) attacks.
     snprintf(fname, sizeof fname, "%s%s", basedir, req_path);
@@ -303,7 +320,13 @@ handle_static_asset(struct http_transaction *ta, char *basedir)
 
     int filefd = open(fname, O_RDONLY);
     if (filefd == -1) {
-        return send_not_found(ta);
+        // html5 fallback
+        if (html5_fallback) {
+
+        }
+        else {
+            return send_not_found(ta);
+        }
     }
 
     ta->resp_status = HTTP_OK;
@@ -329,6 +352,10 @@ out:
 static bool
 handle_api(struct http_transaction *ta)
 {
+    if (ta->req_method == HTTP_POST) {
+        char *body = bufio_offset2ptr(ta->client->bufio, ta->req_body);
+        hexdump(body, ta->req_content_len);
+    }
     return send_error(ta, HTTP_NOT_FOUND, "API not implemented");
 }
 
@@ -359,8 +386,8 @@ http_handle_transaction(struct http_client *self)
             return false;
 
         // To see the body, use this:
-        // char *body = bufio_offset2ptr(ta.client->bufio, ta.req_body);
-        // hexdump(body, ta.req_content_len);
+        char *body = bufio_offset2ptr(ta.client->bufio, ta.req_body);
+        hexdump(body, ta.req_content_len);
     }
 
     buffer_init(&ta.resp_headers, 1024);
