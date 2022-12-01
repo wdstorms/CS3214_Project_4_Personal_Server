@@ -45,6 +45,7 @@ struct http_transaction {
     enum http_response_status resp_status;
     buffer_t resp_headers;
     buffer_t resp_body;
+    char* cookie;
 
     struct http_client *client;
 };

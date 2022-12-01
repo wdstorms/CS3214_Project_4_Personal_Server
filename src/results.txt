@@ -1,0 +1,144 @@
+Y24 pmanasi24@spruce.rlogin in ~/CS3214/p4/pserv/src >server_unit_test_pserv.py -s ./server 
+Your server has started successfully.  Now to begin testing.
+Beginning the Minimum Requirement Tests
+The server has crashed.  Please investigate.
+EThe server has crashed.  Please investigate.
+EThe server has crashed.  Please investigate.
+E
+======================================================================
+ERROR: test_login_get (__main__.Single_Conn_Good_Case)
+  Test Name: test_login_get
+        Number Connections: One 
+        Procedure: Simple GET request:
+            GET /api/login HTTP/1.1
+        
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/courses/cs3214/bin/server_unit_test_pserv.py", line 1203, in test_login_get
+    server_response = self.http_connection.getresponse()
+  File "/usr/lib64/python3.6/http/client.py", line 1365, in getresponse
+    response.begin()
+  File "/usr/lib64/python3.6/http/client.py", line 320, in begin
+    version, status, reason = self._read_status()
+  File "/usr/lib64/python3.6/http/client.py", line 289, in _read_status
+    raise RemoteDisconnected("Remote end closed connection without"
+http.client.RemoteDisconnected: Remote end closed connection without response
+
+======================================================================
+ERROR: test_two_connections (__main__.Multi_Conn_Sequential_Case)
+  Test Name: test_two_connections
+        Number Connections: 2 
+        Procedure: Run 2 connections simultaneously for simple GET requests:
+                        GET /api/login HTTP/1.1
+                   NOTE: this test requires HTTP/1.1 persistent connection support.
+        
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/courses/cs3214/bin/server_unit_test_pserv.py", line 1083, in test_two_connections
+    http_conn.connect()
+  File "/usr/lib64/python3.6/http/client.py", line 954, in connect
+    (self.host,self.port), self.timeout, self.source_address)
+  File "/usr/lib64/python3.6/socket.py", line 724, in create_connection
+    raise err
+  File "/usr/lib64/python3.6/socket.py", line 713, in create_connection
+    sock.connect(sa)
+ConnectionRefusedError: [Errno 111] Connection refused
+
+======================================================================
+ERROR: test_http_1_0_compliance (__main__.Single_Conn_Protocol_Case)
+  Test Name: test_http_1_0_compliance
+        Number Connections: 1 
+        Procedure: Writes "GET /api/login HTTP/1.0\r\n" to the server, then 
+                   checks nothing has been returned, and finishes with the 
+                   extra "\r\n" and checking the data sent back from the 
+                   server.
+        
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/courses/cs3214/bin/server_unit_test_pserv.py", line 247, in test_http_1_0_compliance
+    sock = get_socket_connection(self.hostname, self.port)
+  File "/home/courses/cs3214/bin/server_unit_test_pserv.py", line 60, in get_socket_connection
+    raise ValueError('The script was unable to open a socket to the server')
+ValueError: The script was unable to open a socket to the server
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.002s
+
+FAILED (errors=3)
+
+You have NOT passed the Minimum Requirements for this project.
+Please examine the above errors, the remaining tests
+will not be run until after the above tests pass.
+
+Minimum Requirements             0/25
+Authentication Functionality     0/20
+HTML5 Fallback Functionality     0/ 5
+Video Streaming Functionality    0/10
+IPv6 Support                     0/ 5
+Extra Corner Cases               0/15
+Robustness/Malicious             0/15
+-----
+TOTAL                           0/95
+25 pmanasi24@spruce.rlogin in ~/CS3214/p4/pserv/src >server_unit_test_pserv.py -s ./server >results.txt
+EEE
+======================================================================
+ERROR: test_login_get (__main__.Single_Conn_Good_Case)
+  Test Name: test_login_get
+        Number Connections: One 
+        Procedure: Simple GET request:
+            GET /api/login HTTP/1.1
+        
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/courses/cs3214/bin/server_unit_test_pserv.py", line 1203, in test_login_get
+    server_response = self.http_connection.getresponse()
+  File "/usr/lib64/python3.6/http/client.py", line 1365, in getresponse
+    response.begin()
+  File "/usr/lib64/python3.6/http/client.py", line 320, in begin
+    version, status, reason = self._read_status()
+  File "/usr/lib64/python3.6/http/client.py", line 289, in _read_status
+    raise RemoteDisconnected("Remote end closed connection without"
+http.client.RemoteDisconnected: Remote end closed connection without response
+
+======================================================================
+ERROR: test_two_connections (__main__.Multi_Conn_Sequential_Case)
+  Test Name: test_two_connections
+        Number Connections: 2 
+        Procedure: Run 2 connections simultaneously for simple GET requests:
+                        GET /api/login HTTP/1.1
+                   NOTE: this test requires HTTP/1.1 persistent connection support.
+        
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/courses/cs3214/bin/server_unit_test_pserv.py", line 1083, in test_two_connections
+    http_conn.connect()
+  File "/usr/lib64/python3.6/http/client.py", line 954, in connect
+    (self.host,self.port), self.timeout, self.source_address)
+  File "/usr/lib64/python3.6/socket.py", line 724, in create_connection
+    raise err
+  File "/usr/lib64/python3.6/socket.py", line 713, in create_connection
+    sock.connect(sa)
+ConnectionRefusedError: [Errno 111] Connection refused
+
+======================================================================
+ERROR: test_http_1_0_compliance (__main__.Single_Conn_Protocol_Case)
+  Test Name: test_http_1_0_compliance
+        Number Connections: 1 
+        Procedure: Writes "GET /api/login HTTP/1.0\r\n" to the server, then 
+                   checks nothing has been returned, and finishes with the 
+                   extra "\r\n" and checking the data sent back from the 
+                   server.
+        
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/courses/cs3214/bin/server_unit_test_pserv.py", line 247, in test_http_1_0_compliance
+    sock = get_socket_connection(self.hostname, self.port)
+  File "/home/courses/cs3214/bin/server_unit_test_pserv.py", line 60, in get_socket_connection
+    raise ValueError('The script was unable to open a socket to the server')
+ValueError: The script was unable to open a socket to the server
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.003s
+
+FAILED (errors=3)
+26 pmanasi24@spruce.rlogin in ~/CS3214/p4/pserv/src >

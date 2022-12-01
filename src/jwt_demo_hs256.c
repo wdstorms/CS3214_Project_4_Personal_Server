@@ -65,9 +65,11 @@ main()
     printf("encoded as %s\nTry entering this at jwt.io\n", encoded);
 
     jwt_t *ymtoken;
+    //encoded = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2Njk5OTcwOTksImlhdCI6MTY2OTkxMDY5OSw2c3ViIjoidXNlcjAifQ.a4MnaLtrGc9xux-DWQeSVrHvtSlsKBgnFyTJaWFbtbY";
     rc = jwt_decode(&ymtoken, encoded, 
             (unsigned char *)NEVER_EMBED_A_SECRET_IN_CODE, 
             strlen(NEVER_EMBED_A_SECRET_IN_CODE));
+    //printf("\n%d\n", rc);
     if (rc)
         die("jwt_decode", rc);
 
