@@ -22,6 +22,7 @@
 #include <regex.h>
 #include <jansson.h>
 #include <jwt.h>
+#include <dirent.h>
 
 #include "http.h"
 #include "hexdump.h"
@@ -121,6 +122,11 @@ http_process_headers(struct http_transaction *ta)
         /* Handle other headers here. Both field_value and field_name
          * are zero-terminated strings.
          */
+        if (!strcasecmp(field_name, "Cookie")) {
+            ta->cookie = field_value;
+        }
+
+        
         
 
     }
@@ -363,8 +369,10 @@ out:
 static bool
 handle_api(struct http_transaction *ta)
 {
+    fprintf(stderr, "in HANDLE API\n");
     
     if (ta->req_method == HTTP_POST) {
+        fprintf(stderr, "in post in api\n");
         char *req_path = bufio_offset2ptr(ta->client->bufio, ta->req_path);
         if (STARTS_WITH(req_path, "/api/login")) {
             char *body = bufio_offset2ptr(ta->client->bufio, ta->req_body);
@@ -446,78 +454,135 @@ handle_api(struct http_transaction *ta)
     else if (ta->req_method == HTTP_GET){
         
         char *req_path = bufio_offset2ptr(ta->client->bufio, ta->req_path);
+        fprintf(stderr, "in get in api\n");
         
         if (STARTS_WITH(req_path, "/api/login")) {
-            // // char *body = bufio_offset2ptr(ta->client->bufio, ta->req_body);
-            // bool tok_valid = false;
-            // jwt_t* ymtoken;
-            // char* encoded = ta->cookie;
-            // int rc = jwt_decode(&ymtoken, encoded, 
-            // (unsigned char *)SECRET_IN_CODE, 
-            // strlen(SECRET_IN_CODE));
+            // char *body = bufio_offset2ptr(ta->client->bufio, ta->req_body);
+            bool tok_valid = false;
+            jwt_t* ymtoken;
+            char* entire_cookie = ta->cookie;
+            fprintf(stderr, "in get in api/login\n");
 
-            // //check token signature not valid
-            // if (rc) {
-            //     tok_valid = true;
-            // }
+            if (!entire_cookie) {
+                return send_error(ta, HTTP_PERMISSION_DENIED, "COOKIE IS NULL");
+            }
 
-            // char *grants = jwt_get_grants_json(ymtoken, NULL); // NULL means all
+            while(*entire_cookie == ' ' || *entire_cookie == '\t') { //skip white space
+                entire_cookie++;
+            }
 
-            // if (grants == NULL) {
-            //     //send error message
-            // }
+            if(!STARTS_WITH(entire_cookie, "auth_token=")) {
+                return send_error(ta, HTTP_PERMISSION_DENIED, "Bad/Missing Token");
+            }
+
+            fprintf(stderr, "checkpoint 1\n");
             
-            // // an example of how to use Jansson
-            // json_error_t error;
-            // json_t *jgrants = json_loadb(grants, strlen(grants), 0, &error);
+            char* encoded = entire_cookie + 11;
 
-            // json_int_t* exp, iat;
-            // const char *sub;
-            // rc = json_unpack(jgrants, "{s:I, s:I, s:s}", 
-            // "exp", &exp, "iat", &iat, "sub", &sub);
+            int rc = jwt_decode(&ymtoken, encoded, 
+            (unsigned char *)SECRET_IN_CODE, 
+            strlen(SECRET_IN_CODE));
+            fprintf(stderr, "checkpoint 2\n");
+            //check token signature not valid
+            if (rc) {
+                //tok_valid = true;
+                return send_error(ta, HTTP_PERMISSION_DENIED, "Bad Token");
+            }
 
-            // rc = jwt_add_grant(ymtoken, "sub", "user0");
-            // time_t now = time(NULL);
-            // rc = jwt_add_grant_int(ymtoken, "iat", now);
-            // long exp_value = now + 3600 * 24;
-            // rc = jwt_add_grant_int(ymtoken, "exp", exp_value);
-
-            // int64_t exp_val = (int64_t) exp;
-            // //int64_t iat_val = (int64_t)iat;
+            char *grants = jwt_get_grants_json(ymtoken, NULL); // NULL means all
+            fprintf(stderr, "checkpoint 3\n");
+            if (grants == NULL) {
+                //send error message
+                return send_error(ta, HTTP_PERMISSION_DENIED, "Bad Grants");
+            }
             
-            // //check token not expired
-            // now = time(NULL);
-            // if( now < exp_val){
-            //     tok_valid = true;
-            // }
+            // an example of how to use Jansson
+            json_error_t error;
+            json_t *jgrants = json_loadb(grants, strlen(grants), 0, &error);
 
-            // if (tok_valid) {
-            //     http_add_header(&ta->resp_headers, "Content-Type", "application/json");
-            //     buffer_appends(&ta->resp_body, grants);
-            //     buffer_appends(&ta->resp_body, CRLF);
+            json_int_t* exp, iat;
+            const char *sub;
+            rc = json_unpack(jgrants, "{s:I, s:I, s:s}", 
+            "exp", &exp, "iat", &iat, "sub", &sub);
+
+            rc = jwt_add_grant(ymtoken, "sub", "user0");
+            time_t now = time(NULL);
+            rc = jwt_add_grant_int(ymtoken, "iat", now);
+            long exp_value = now + 3600 * 24;
+            rc = jwt_add_grant_int(ymtoken, "exp", exp_value);
+
+            int64_t exp_val = (int64_t) exp;
+            //int64_t iat_val = (int64_t)iat;
+            
+            //check token not expired
+            now = time(NULL);
+            if (now < exp_val){
+                tok_valid = true;
+            }else {
+                return send_error(ta, HTTP_PERMISSION_DENIED, "Token Expired");
+            }
+
+            if (tok_valid) {
+                http_add_header(&ta->resp_headers, "Content-Type", "application/json");
+                buffer_appends(&ta->resp_body, grants);
+                buffer_appends(&ta->resp_body, CRLF);
                 
-            //     ta->resp_status = HTTP_OK;
-            //     rc = send_response(ta);
-            //     return rc;
+                ta->resp_status = HTTP_OK;
+                rc = send_response(ta);
+                return rc;
 
-            // }else {
-            //     http_add_header(&ta->resp_headers, "Content-Type", "application/json");
-            //     buffer_appends(&ta->resp_body, "{}");
-            //     buffer_appends(&ta->resp_body, CRLF);
-            //     ta->resp_status = HTTP_OK;
-            //     rc = send_response(ta);
-            //     return rc;
+            }else {
+                http_add_header(&ta->resp_headers, "Content-Type", "application/json");
+                buffer_appends(&ta->resp_body, "{}");
+                buffer_appends(&ta->resp_body, CRLF);
+                ta->resp_status = HTTP_OK;
+                rc = send_response(ta);
+                return rc;
 
-            // } 
-            buffer_appends(&ta->resp_body, "{}"); 
-            ta->resp_status = HTTP_OK;
-            return send_response(ta);
+            } 
+            // buffer_appends(&ta->resp_body, "{}"); 
+            // ta->resp_status = HTTP_OK;
+            // return send_response(ta);
         }
         //hexdump(body, ta->req_content_len);
         //printf("end");
+        else if(STARTS_WITH(req_path, "/api/video")){
+            // char *body = bufio_offset2ptr(ta->client->bufio, ta->req_body);
 
-        else{ //(STARTS_WITH(ta->req_path, "/api/logout"))
+            // //accept rangers heading, ranges interpreted by client
+            // //retunr content range header
+            // //create a new connection
 
+            // //create overall list?? how to create a list in a json object?
+            // jwt_t* overall_obj;
+            // int rc = jwt_new(&overall_obj);
+
+            // DIR *root_dir =  opendir("/");
+            // struct dirent *directory;
+
+            // while ((directory = readdir(root_dir)) != NULL) {
+
+            //     if(strstr(directory->d_name, ".mp4")){
+            //         //get size
+            //         struct stat stat_file;
+            //         if (stat(directory->d_name, &stat_file) == -1) {
+            //             perror("stat");
+            //             exit(EXIT_FAILURE);
+            //         }
+            //         int file_size = stat_file.st_size;
+
+            //         // create token to add to overall list
+            //         jwt_t* elem;
+            //         int element = jwt_new(&elem);
+            //         element = jwt_add_grant_int(elem, "size", file_size);
+            //         element = jwt_add_grant(elem, "name", directory->d_name);
+            //         //now how to add element to oer arching list?
+            //     }
+            // }
+
+        }
+        else{ //(STARTS_WITH(ta->req_path, "/api/logout")) ? something else? error recog?
+            fprintf(stderr, "NOT in get in api/login");
         }
     }
     return send_error(ta, HTTP_NOT_FOUND, "API not implemented");
@@ -572,7 +637,7 @@ http_handle_transaction(struct http_client *self)
         if (is_auth) {
             //
         }else{
-            return send_error(&ta, HTTP_PERMISSION_DENIED, "Not Authorized\n");
+            return send_error(&ta, HTTP_PERMISSION_DENIED, "Authentication failed.\n");
         }
     } else {
         /*rc = */handle_static_asset(&ta, server_root);
