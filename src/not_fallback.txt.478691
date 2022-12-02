@@ -1,0 +1,19 @@
+set_robust_list(0x7f2e6f1ca9e0, 24)     = 0
+mmap(NULL, 134217728, PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_NORESERVE, -1, 0) = 0x7f2e669ca000
+munmap(0x7f2e669ca000, 23289856)        = 0
+munmap(0x7f2e6c000000, 43819008)        = 0
+mprotect(0x7f2e68000000, 135168, PROT_READ|PROT_WRITE) = 0
+recvfrom(4, "GET /index.html HTTP/1.1\r\nHost: "..., 2048, MSG_NOSIGNAL, NULL, NULL) = 88
+fstat(1, {st_mode=S_IFCHR|0620, st_rdev=makedev(0x88, 0x9), ...}) = 0
+access("../tests/test_root_data//index.html", R_OK) = 0
+stat("../tests/test_root_data//index.html", {st_mode=S_IFREG|0755, st_size=209, ...}) = 0
+openat(AT_FDCWD, "../tests/test_root_data//index.html", O_RDONLY) = 6
+sendto(4, "HTTP/1.1 200 OK\r\n", 17, MSG_NOSIGNAL, NULL, 0) = 17
+sendto(4, "Server: CS3214-Personal-Server\r\n"..., 80, MSG_NOSIGNAL, NULL, 0) = 80
+sendfile(4, 6, [0] => [209], 209)       = 209
+close(6)                                = 0
+recvfrom(4, "", 2048, MSG_NOSIGNAL, NULL, NULL) = 0
+close(4)                                = 0
+madvise(0x7f2e6e9ca000, 8368128, MADV_DONTNEED) = 0
+exit(0)                                 = ?
++++ exited with 0 +++

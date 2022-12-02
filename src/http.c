@@ -158,8 +158,12 @@ add_content_length(buffer_t *res, size_t len)
 static void
 start_response(struct http_transaction * ta, buffer_t *res)
 {
-    buffer_appends(res, "HTTP/1.0 ");
-
+    if (ta->req_version == HTTP_1_0) {
+        buffer_appends(res, "HTTP/1.0 ");
+    }
+    else {
+        buffer_appends(res, "HTTP/1.1 ");
+    }
     switch (ta->resp_status) {
     case HTTP_OK:
         buffer_appends(res, "200 OK");
@@ -296,23 +300,32 @@ static bool
 handle_static_asset(struct http_transaction *ta, char *basedir)
 {
     char fname[PATH_MAX];
-
+    printf(basedir);
     char *req_path = bufio_offset2ptr(ta->client->bufio, ta->req_path);
 
     // if you find ../ in req_path send permission denied
-    if (!strstr(req_path, "..")) {
+    if (strstr(req_path, "..")) {
         return send_error(ta, HTTP_PERMISSION_DENIED, "Permission denied.");
     }
-
     // The code below is vulnerable to an attack.  Can you see
     // which?  Fix it to avoid indirect object reference (IDOR) attacks.
     snprintf(fname, sizeof fname, "%s%s", basedir, req_path);
-
+    if (html5_fallback && strcmp(req_path, "/") == 0) {
+        snprintf(fname, sizeof fname, "%s%s", basedir, "/index.html");
+    }
+    
     if (access(fname, R_OK)) {
         if (errno == EACCES)
             return send_error(ta, HTTP_PERMISSION_DENIED, "Permission denied.");
-        else
-            return send_not_found(ta);
+        else {
+            if (html5_fallback) {
+                snprintf(fname, sizeof fname, "%s%s", basedir, "/index.html");
+            }
+            else {
+                // fprintf(stderr, req_path);
+                return send_not_found(ta);
+            }
+        }
     }
 
     // Determine file size
@@ -324,12 +337,7 @@ handle_static_asset(struct http_transaction *ta, char *basedir)
     int filefd = open(fname, O_RDONLY);
     if (filefd == -1) {
         // html5 fallback
-        if (html5_fallback) {
-            snprintf(fname, sizeof fname, "%s%s", basedir, "/index.html");
-        }
-        else {
-            return send_not_found(ta);
-        }
+        return send_not_found(ta);
     }
 
     ta->resp_status = HTTP_OK;
@@ -355,6 +363,7 @@ out:
 static bool
 handle_api(struct http_transaction *ta)
 {
+    
     if (ta->req_method == HTTP_POST) {
         char *req_path = bufio_offset2ptr(ta->client->bufio, ta->req_path);
         if (STARTS_WITH(req_path, "/api/login")) {
@@ -408,7 +417,7 @@ handle_api(struct http_transaction *ta)
                 ta->resp_status = HTTP_OK;
                 rc = send_response(ta);
 
-                //hexdump(body, ta->req_content_len);
+                // hexdump(body, ta->req_content_len);
                 return rc; //what do we return here
             }
             else {
@@ -435,69 +444,74 @@ handle_api(struct http_transaction *ta)
         }
     }
     else if (ta->req_method == HTTP_GET){
+        
         char *req_path = bufio_offset2ptr(ta->client->bufio, ta->req_path);
+        
         if (STARTS_WITH(req_path, "/api/login")) {
-            //char *body = bufio_offset2ptr(ta->client->bufio, ta->req_body);
-            bool tok_valid = false;
-            jwt_t* ymtoken;
-            char* encoded = ta->cookie;
-            int rc = jwt_decode(&ymtoken, encoded, 
-            (unsigned char *)SECRET_IN_CODE, 
-            strlen(SECRET_IN_CODE));
+            // // char *body = bufio_offset2ptr(ta->client->bufio, ta->req_body);
+            // bool tok_valid = false;
+            // jwt_t* ymtoken;
+            // char* encoded = ta->cookie;
+            // int rc = jwt_decode(&ymtoken, encoded, 
+            // (unsigned char *)SECRET_IN_CODE, 
+            // strlen(SECRET_IN_CODE));
 
-            //check token signature not valid
-            if (rc) {
-                tok_valid = true;
-            }
+            // //check token signature not valid
+            // if (rc) {
+            //     tok_valid = true;
+            // }
 
-            char *grants = jwt_get_grants_json(ymtoken, NULL); // NULL means all
+            // char *grants = jwt_get_grants_json(ymtoken, NULL); // NULL means all
 
-            if (grants == NULL) {
-                //send error message
-            }
+            // if (grants == NULL) {
+            //     //send error message
+            // }
             
-            // an example of how to use Jansson
-            json_error_t error;
-            json_t *jgrants = json_loadb(grants, strlen(grants), 0, &error);
+            // // an example of how to use Jansson
+            // json_error_t error;
+            // json_t *jgrants = json_loadb(grants, strlen(grants), 0, &error);
 
-            json_int_t* exp, iat;
-            const char *sub;
-            rc = json_unpack(jgrants, "{s:I, s:I, s:s}", 
-            "exp", &exp, "iat", &iat, "sub", &sub);
+            // json_int_t* exp, iat;
+            // const char *sub;
+            // rc = json_unpack(jgrants, "{s:I, s:I, s:s}", 
+            // "exp", &exp, "iat", &iat, "sub", &sub);
 
-            rc = jwt_add_grant(ymtoken, "sub", "user0");
-            time_t now = time(NULL);
-            rc = jwt_add_grant_int(ymtoken, "iat", now);
-            long exp_value = now + 3600 * 24;
-            rc = jwt_add_grant_int(ymtoken, "exp", exp_value);
+            // rc = jwt_add_grant(ymtoken, "sub", "user0");
+            // time_t now = time(NULL);
+            // rc = jwt_add_grant_int(ymtoken, "iat", now);
+            // long exp_value = now + 3600 * 24;
+            // rc = jwt_add_grant_int(ymtoken, "exp", exp_value);
 
-            int64_t exp_val = (int64_t) exp;
-            //int64_t iat_val = (int64_t)iat;
+            // int64_t exp_val = (int64_t) exp;
+            // //int64_t iat_val = (int64_t)iat;
             
-            //check token not expired
-            now = time(NULL);
-            if( now < exp_val){
-                tok_valid = true;
-            }
+            // //check token not expired
+            // now = time(NULL);
+            // if( now < exp_val){
+            //     tok_valid = true;
+            // }
 
-            if (tok_valid) {
-                http_add_header(&ta->resp_headers, "Content-Type", "application/json");
-                buffer_appends(&ta->resp_body, grants);
-                buffer_appends(&ta->resp_body, CRLF);
+            // if (tok_valid) {
+            //     http_add_header(&ta->resp_headers, "Content-Type", "application/json");
+            //     buffer_appends(&ta->resp_body, grants);
+            //     buffer_appends(&ta->resp_body, CRLF);
                 
-                ta->resp_status = HTTP_OK;
-                rc = send_response(ta);
-                return rc;
+            //     ta->resp_status = HTTP_OK;
+            //     rc = send_response(ta);
+            //     return rc;
 
-            }else {
-                http_add_header(&ta->resp_headers, "Content-Type", "application/json");
-                buffer_appends(&ta->resp_body, "{}");
-                buffer_appends(&ta->resp_body, CRLF);
-                ta->resp_status = HTTP_OK;
-                rc = send_response(ta);
-                return rc;
+            // }else {
+            //     http_add_header(&ta->resp_headers, "Content-Type", "application/json");
+            //     buffer_appends(&ta->resp_body, "{}");
+            //     buffer_appends(&ta->resp_body, CRLF);
+            //     ta->resp_status = HTTP_OK;
+            //     rc = send_response(ta);
+            //     return rc;
 
-            }  
+            // } 
+            buffer_appends(&ta->resp_body, "{}"); 
+            ta->resp_status = HTTP_OK;
+            return send_response(ta);
         }
         //hexdump(body, ta->req_content_len);
         //printf("end");
@@ -529,7 +543,7 @@ http_handle_transaction(struct http_client *self)
 
     if (!http_process_headers(&ta))
         return false;
-
+    bool http1_1 = ta.req_version == HTTP_1_1;
     if (ta.req_content_len > 0) {
         int rc = bufio_read(self->bufio, ta.req_content_len, &ta.req_body);
         if (rc != ta.req_content_len)
@@ -544,13 +558,16 @@ http_handle_transaction(struct http_client *self)
     http_add_header(&ta.resp_headers, "Server", "CS3214-Personal-Server");
     buffer_init(&ta.resp_body, 0);
 
-    bool rc = false;
+    // bool rc = false;
     char *req_path = bufio_offset2ptr(ta.client->bufio, ta.req_path);
+    
     // do .. stuff here
     if (STARTS_WITH(req_path, "/api")) {
-        rc = handle_api(&ta);
+        
+        /*rc =*/ handle_api(&ta);
     } else
     if (STARTS_WITH(req_path, "/private")) {
+        
         /* not implemented */
         if (is_auth) {
             //
@@ -558,11 +575,11 @@ http_handle_transaction(struct http_client *self)
             return send_error(&ta, HTTP_PERMISSION_DENIED, "Not Authorized\n");
         }
     } else {
-        rc = handle_static_asset(&ta, server_root);
+        /*rc = */handle_static_asset(&ta, server_root);
     }
 
     buffer_delete(&ta.resp_headers);
     buffer_delete(&ta.resp_body);
 
-    return rc;
+    return http1_1;
 }
