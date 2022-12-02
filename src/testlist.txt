@@ -1,0 +1,12 @@
+test_access_control_private_invalid_token
+        test_access_control_private_malformed_token
+        test_access_control_private_no_token
+        test_access_control_private_path
+        test_access_control_private_valid_semantic_token
+        test_access_control_private_valid_token
+        test_access_control_public_no_token
+        test_access_control_public_valid_token
+        test_login_content_type
+        test_expires_authentication_token
+        test_jwt_claims_cookie
+        test_jwt_claims_json

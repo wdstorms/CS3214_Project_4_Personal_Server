@@ -1,3 +1,0 @@
-set_robust_list(0x7fc48127e9e0, 24)     = 0
---- SIGTERM {si_signo=SIGTERM, si_code=SI_USER, si_pid=480913, si_uid=26674} ---
-+++ killed by SIGTERM +++
