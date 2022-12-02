@@ -5,6 +5,7 @@
  * written for CS3214, Spring 2018.
  */
 
+#include <pthread.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,6 +35,15 @@ int token_expiration_time = 24 * 60 * 60;
 // root from which static files are served
 char * server_root;
 
+static void* thread_loop(void* arg) {
+
+    int client_socket = *((int*)arg);
+    struct http_client client;
+    http_setup_client(&client, bufio_create(client_socket));
+    while (http_handle_transaction(&client));
+    bufio_close(client.bufio);
+    return NULL;
+}
 /*
  * A non-concurrent, iterative server that serves one client at a time.
  * For each client, it handles exactly 1 HTTP transaction.
@@ -47,11 +57,9 @@ server_loop(char *port_string)
         int client_socket = socket_accept_client(accepting_socket);
         if (client_socket == -1)
             return;
-
-        struct http_client client;
-        http_setup_client(&client, bufio_create(client_socket));
-        http_handle_transaction(&client);
-        bufio_close(client.bufio);
+        pthread_t t;
+        pthread_create(&t, NULL, thread_loop, &client_socket);
+        pthread_detach(t);
     }
 }
 

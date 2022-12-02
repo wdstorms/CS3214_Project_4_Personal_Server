@@ -1,0 +1,16 @@
+set_robust_list(0x7fa05f4b09e0, 24)     = 0
+mmap(NULL, 134217728, PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_NORESERVE, -1, 0) = 0x7fa056cb0000
+munmap(0x7fa056cb0000, 20250624)        = 0
+munmap(0x7fa05c000000, 46858240)        = 0
+mprotect(0x7fa058000000, 135168, PROT_READ|PROT_WRITE) = 0
+recvfrom(4, "GET /index.html HTTP/1.1\r\nHost: "..., 2048, MSG_NOSIGNAL, NULL, NULL) = 88
+fstat(1, {st_mode=S_IFCHR|0620, st_rdev=makedev(0x88, 0x9), ...}) = 0
+access("-a/index.html", R_OK)           = -1 ENOENT (No such file or directory)
+sendto(4, "HTTP/1.1 404 Not Found\r\n", 24, MSG_NOSIGNAL, NULL, 0) = 24
+sendto(4, "Server: CS3214-Personal-Server\r\n"..., 80, MSG_NOSIGNAL, NULL, 0) = 80
+sendto(4, "File /index.html not found", 26, MSG_NOSIGNAL, NULL, 0) = 26
+recvfrom(4, "", 2048, MSG_NOSIGNAL, NULL, NULL) = 0
+close(4)                                = 0
+madvise(0x7fa05ecb0000, 8368128, MADV_DONTNEED) = 0
+exit(0)                                 = ?
++++ exited with 0 +++
