@@ -237,7 +237,8 @@ send_response(struct http_transaction *ta)
 
     if (!send_response_header(ta))
         return false;
-
+    // bool b = 
+    // fprintf(stderr, "\n%d\n", b);
     return bufio_sendbuffer(ta->client->bufio, &ta->resp_body) != -1;
 }
 
@@ -247,6 +248,7 @@ const int MAX_ERROR_LEN = 2048;
 static bool
 send_error(struct http_transaction * ta, enum http_response_status status, const char *fmt, ...)
 {
+    // fprintf(stderr, "in send error");
     va_list ap;
 
     va_start(ap, fmt);
@@ -255,7 +257,13 @@ send_error(struct http_transaction * ta, enum http_response_status status, const
     ta->resp_body.len += len > MAX_ERROR_LEN ? MAX_ERROR_LEN - 1 : len;
     va_end(ap);
     ta->resp_status = status;
-    http_add_header(&ta->resp_headers, "Content-Type", "text/plain");
+    char *req_path = bufio_offset2ptr(ta->client->bufio, ta->req_path);
+    if (!strcmp(req_path, "/api/login")) {
+        http_add_header(&ta->resp_headers, "Content-Type", "application/json");
+    }
+    else {
+        http_add_header(&ta->resp_headers, "Content-Type", "text/plain");
+    }
     return send_response(ta);
 }
 
@@ -308,10 +316,12 @@ handle_static_asset(struct http_transaction *ta, char *basedir)
     char fname[PATH_MAX];
     printf(basedir);
     char *req_path = bufio_offset2ptr(ta->client->bufio, ta->req_path);
-
+    if (req_path == NULL) {
+        return false;
+    }
     // if you find ../ in req_path send permission denied
     if (strstr(req_path, "..")) {
-        return send_error(ta, HTTP_PERMISSION_DENIED, "Permission denied.");
+        return send_error(ta, HTTP_NOT_FOUND, "Not found.");
     }
     // The code below is vulnerable to an attack.  Can you see
     // which?  Fix it to avoid indirect object reference (IDOR) attacks.
@@ -366,13 +376,87 @@ out:
     return success;
 }
 
+static bool validate_cookie(char* entire_cookie) {
+    
+    jwt_t* ymtoken;
+    while(*entire_cookie == ' ' || *entire_cookie == '\t') { //skip white space
+        entire_cookie++;
+    }
+    if (!strstr(entire_cookie, "auth_token=")) 
+    {
+        return false;
+    }
+    while (entire_cookie != NULL) {
+        if(!STARTS_WITH(entire_cookie, "auth_token=")) {
+            // send_error(ta, HTTP_PERMISSION_DENIED, "Bad/Missing Token");
+            entire_cookie++;
+        }
+        else {
+            break;
+        }
+    }
+    if (!entire_cookie) {
+        return false;
+    }
+    // fprintf(stderr, "checkpoint 1\n");
+    
+    char* encoded = entire_cookie + 11;
+
+    int rc = jwt_decode(&ymtoken, encoded, 
+    (unsigned char *)SECRET_IN_CODE, 
+    strlen(SECRET_IN_CODE));
+    // fprintf(stderr, "checkpoint 2\n");
+    //check token signature not valid
+    if (rc) {
+        //tok_valid = true;
+        //send_error(ta, HTTP_PERMISSION_DENIED, "Bad Token");
+        return false;
+    }
+
+    char *grants = jwt_get_grants_json(ymtoken, NULL); // NULL means all
+    fprintf(stderr, "\n%s\n", grants);
+    // fprintf(stderr, "checkpoint 3\n");
+    if (grants == NULL) {
+        //send error message
+        // send_error(ta, HTTP_PERMISSION_DENIED, "Bad Grants");
+        return false;
+    }
+    
+    // an example of how to use Jansson
+    json_error_t error;
+    json_t *jgrants = json_loadb(grants, strlen(grants), 0, &error);
+
+    json_int_t* exp, iat;
+    const char *sub;
+    rc = json_unpack(jgrants, "{s:I, s:I, s:s}", 
+    "exp", &exp, "iat", &iat, "sub", &sub);
+
+    rc = jwt_add_grant(ymtoken, "sub", "user0");
+    time_t now = time(NULL);
+    rc = jwt_add_grant_int(ymtoken, "iat", now);
+    long exp_value = now + 3600 * 24;
+    rc = jwt_add_grant_int(ymtoken, "exp", exp_value);
+
+    int64_t exp_val = (int64_t) exp;
+    //int64_t iat_val = (int64_t)iat;
+    
+    //check token not expired
+    now = time(NULL);
+    if (now < exp_val){
+        return true;
+    }else {
+        // send_error(ta, HTTP_PERMISSION_DENIED, "Token Expired");
+        return false;
+    }
+}
+
 static bool
 handle_api(struct http_transaction *ta)
 {
-    fprintf(stderr, "in HANDLE API\n");
+    // fprintf(stderr, "in HANDLE API\n");
     
     if (ta->req_method == HTTP_POST) {
-        fprintf(stderr, "in post in api\n");
+        // fprintf(stderr, "in post in api\n");
         char *req_path = bufio_offset2ptr(ta->client->bufio, ta->req_path);
         if (STARTS_WITH(req_path, "/api/login")) {
             char *body = bufio_offset2ptr(ta->client->bufio, ta->req_body);
@@ -413,23 +497,21 @@ handle_api(struct http_transaction *ta)
 
                 char *encoded = jwt_encode_str(mytoken); //encoded using HMAC
                 ta->cookie = encoded; //add cookie to ta struct
-                http_add_header(&ta->resp_headers, "Content-Type", "application/json");
+                // http_add_header(&ta->resp_headers, "Content-Type", "application/json");
 
                 //fmt: <cookie-name>=<cookie-value>; Path=<path-value>; Max-Age=<number>; HttpOnly
                 //http_add_header(&ta->resp_headers, "Set-Cookie", "{s=s; s=s; s=I; s}", "auth token", &encoded, "Path", "/", "Max-Age", exp_value, "HttpOnly");
                 http_add_header(&ta->resp_headers, "Set-Cookie", "auth_token=%s; Path=/; Max-Age=%ld; HttpOnly", encoded, exp_value);
 
                 char *grants = jwt_get_grants_json(mytoken, NULL); // NULL means all
-                buffer_appends(&ta->resp_body, grants);
-                buffer_appends(&ta->resp_body, CRLF);
-                ta->resp_status = HTTP_OK;
-                rc = send_response(ta);
+                rc = send_error(ta, HTTP_OK, grants);
 
                 // hexdump(body, ta->req_content_len);
                 return rc; //what do we return here
             }
             else {
-                return send_error(ta, HTTP_PERMISSION_DENIED, "Wrong Password");
+                // fprintf(stderr, "%s", (char*)ta);
+                return send_error(ta, HTTP_PERMISSION_DENIED, "Wrong user or pass\n");
             }
             //hexdump(body, ta->req_content_len);
             //printf("end");
@@ -454,95 +536,37 @@ handle_api(struct http_transaction *ta)
     else if (ta->req_method == HTTP_GET){
         
         char *req_path = bufio_offset2ptr(ta->client->bufio, ta->req_path);
-        fprintf(stderr, "in get in api\n");
+        fprintf(stderr, req_path);
         
         if (STARTS_WITH(req_path, "/api/login")) {
             // char *body = bufio_offset2ptr(ta->client->bufio, ta->req_body);
-            bool tok_valid = false;
-            jwt_t* ymtoken;
             char* entire_cookie = ta->cookie;
             fprintf(stderr, "in get in api/login\n");
 
             if (!entire_cookie) {
-                return send_error(ta, HTTP_PERMISSION_DENIED, "COOKIE IS NULL");
+                return send_error(ta, HTTP_OK, "{}");
             }
-
-            while(*entire_cookie == ' ' || *entire_cookie == '\t') { //skip white space
-                entire_cookie++;
-            }
-
-            if(!STARTS_WITH(entire_cookie, "auth_token=")) {
-                return send_error(ta, HTTP_PERMISSION_DENIED, "Bad/Missing Token");
-            }
-
-            fprintf(stderr, "checkpoint 1\n");
-            
-            char* encoded = entire_cookie + 11;
-
-            int rc = jwt_decode(&ymtoken, encoded, 
-            (unsigned char *)SECRET_IN_CODE, 
-            strlen(SECRET_IN_CODE));
-            fprintf(stderr, "checkpoint 2\n");
-            //check token signature not valid
-            if (rc) {
-                //tok_valid = true;
-                return send_error(ta, HTTP_PERMISSION_DENIED, "Bad Token");
-            }
-
-            char *grants = jwt_get_grants_json(ymtoken, NULL); // NULL means all
-            fprintf(stderr, "checkpoint 3\n");
-            if (grants == NULL) {
-                //send error message
-                return send_error(ta, HTTP_PERMISSION_DENIED, "Bad Grants");
-            }
-            
-            // an example of how to use Jansson
-            json_error_t error;
-            json_t *jgrants = json_loadb(grants, strlen(grants), 0, &error);
-
-            json_int_t* exp, iat;
-            const char *sub;
-            rc = json_unpack(jgrants, "{s:I, s:I, s:s}", 
-            "exp", &exp, "iat", &iat, "sub", &sub);
-
-            rc = jwt_add_grant(ymtoken, "sub", "user0");
-            time_t now = time(NULL);
-            rc = jwt_add_grant_int(ymtoken, "iat", now);
-            long exp_value = now + 3600 * 24;
-            rc = jwt_add_grant_int(ymtoken, "exp", exp_value);
-
-            int64_t exp_val = (int64_t) exp;
-            //int64_t iat_val = (int64_t)iat;
-            
-            //check token not expired
-            now = time(NULL);
-            if (now < exp_val){
-                tok_valid = true;
-            }else {
-                return send_error(ta, HTTP_PERMISSION_DENIED, "Token Expired");
-            }
-
-            if (tok_valid) {
+            else if (validate_cookie(entire_cookie)) {
+                jwt_t* ymtoken;
+                char* encoded = entire_cookie + 11;
+                jwt_decode(&ymtoken, encoded, 
+                (unsigned char *)SECRET_IN_CODE, 
+                strlen(SECRET_IN_CODE));
+                char *grants = jwt_get_grants_json(ymtoken, NULL); // NULL means all
                 http_add_header(&ta->resp_headers, "Content-Type", "application/json");
                 buffer_appends(&ta->resp_body, grants);
                 buffer_appends(&ta->resp_body, CRLF);
                 
                 ta->resp_status = HTTP_OK;
-                rc = send_response(ta);
-                return rc;
-
-            }else {
+                return send_response(ta);;
+            }
+            else {
                 http_add_header(&ta->resp_headers, "Content-Type", "application/json");
                 buffer_appends(&ta->resp_body, "{}");
                 buffer_appends(&ta->resp_body, CRLF);
                 ta->resp_status = HTTP_OK;
-                rc = send_response(ta);
-                return rc;
-
+                return send_response(ta);;
             } 
-            // buffer_appends(&ta->resp_body, "{}"); 
-            // ta->resp_status = HTTP_OK;
-            // return send_response(ta);
         }
         //hexdump(body, ta->req_content_len);
         //printf("end");
@@ -615,8 +639,8 @@ http_handle_transaction(struct http_client *self)
             return false;
 
         // To see the body, use this:
-        //char *body = bufio_offset2ptr(ta.client->bufio, ta.req_body);
-        //hexdump(body, ta.req_content_len);
+        // char *body = bufio_offset2ptr(ta.client->bufio, ta.req_body);
+        // hexdump(body, ta.req_content_len);
     }
 
     buffer_init(&ta.resp_headers, 1024);
@@ -634,13 +658,15 @@ http_handle_transaction(struct http_client *self)
     if (STARTS_WITH(req_path, "/private")) {
         
         /* not implemented */
-        if (is_auth) {
-            //
+        //fprintf(stderr, "\n%d\n", validate_cookie(ta.cookie));
+        if (ta.cookie != NULL && validate_cookie(ta.cookie)) {
+            handle_static_asset(&ta, server_root);
         }else{
-            return send_error(&ta, HTTP_PERMISSION_DENIED, "Authentication failed.\n");
+            send_error(&ta, HTTP_PERMISSION_DENIED, "Authentication failed.\n");
+            
         }
     } else {
-        /*rc = */handle_static_asset(&ta, server_root);
+        handle_static_asset(&ta, server_root);
     }
 
     buffer_delete(&ta.resp_headers);

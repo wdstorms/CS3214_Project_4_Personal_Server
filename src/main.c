@@ -38,6 +38,7 @@ char * server_root;
 static void* thread_loop(void* arg) {
 
     int client_socket = *((int*)arg);
+    free(arg);
     struct http_client client;
     http_setup_client(&client, bufio_create(client_socket));
     while (http_handle_transaction(&client));
@@ -54,11 +55,12 @@ server_loop(char *port_string)
     int accepting_socket = socket_open_bind_listen(port_string, 10000);
     while (accepting_socket != -1) {
         fprintf(stderr, "Waiting for client...\n");
-        int client_socket = socket_accept_client(accepting_socket);
-        if (client_socket == -1)
+        int* client_socket = malloc(sizeof(int));
+        *client_socket = socket_accept_client(accepting_socket);
+        if (*client_socket == -1)
             return;
         pthread_t t;
-        pthread_create(&t, NULL, thread_loop, &client_socket);
+        pthread_create(&t, NULL, thread_loop, client_socket);
         pthread_detach(t);
     }
 }

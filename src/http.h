@@ -46,7 +46,7 @@ struct http_transaction {
     buffer_t resp_headers;
     buffer_t resp_body;
     char* cookie;
-
+    long time;
     struct http_client *client;
 };
 

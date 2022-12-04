@@ -1,0 +1,8 @@
+set_robust_list(0x7feefd6339e0, 24)     = 0
+recvfrom(5, "POST /api/login HTTP/1.1\r\nHost: "..., 2048, MSG_NOSIGNAL, NULL, NULL) = 214
+recvfrom(5, "{\"foo\": \"bar\"}", 2048, MSG_NOSIGNAL, NULL, NULL) = 14
+openat(AT_FDCWD, "/dev/urandom", O_RDONLY) = 6
+read(6, "\214\220\f3", 4)               = 4
+close(6)                                = 0
+--- SIGSEGV {si_signo=SIGSEGV, si_code=SEGV_MAPERR, si_addr=NULL} ---
++++ killed by SIGSEGV +++
