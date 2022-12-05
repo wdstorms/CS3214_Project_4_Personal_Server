@@ -376,7 +376,7 @@ out:
     return success;
 }
 
-static bool validate_cookie(char* entire_cookie) {
+static bool validate_cookie(struct http_transaction* ta, char* entire_cookie) {
     
     jwt_t* ymtoken;
     while(*entire_cookie == ' ' || *entire_cookie == '\t') { //skip white space
@@ -434,18 +434,18 @@ static bool validate_cookie(char* entire_cookie) {
     rc = jwt_add_grant(ymtoken, "sub", "user0");
     time_t now = time(NULL);
     rc = jwt_add_grant_int(ymtoken, "iat", now);
-    long exp_value = now + 3600 * 24;
-    rc = jwt_add_grant_int(ymtoken, "exp", exp_value);
+    long exp_value = now + token_expiration_time;
+    exp_value= jwt_get_grant_int(ymtoken, "exp");
 
-    int64_t exp_val = (int64_t) exp;
+    // int64_t exp_val = (int64_t) exp;
     //int64_t iat_val = (int64_t)iat;
     
     //check token not expired
     now = time(NULL);
-    if (now < exp_val){
+    if (now < exp_value){
         return true;
     }else {
-        // send_error(ta, HTTP_PERMISSION_DENIED, "Token Expired");
+        send_error(ta, HTTP_PERMISSION_DENIED, "Token Expired");
         return false;
     }
 }
@@ -460,7 +460,7 @@ handle_api(struct http_transaction *ta)
         char *req_path = bufio_offset2ptr(ta->client->bufio, ta->req_path);
         if (STARTS_WITH(req_path, "/api/login")) {
             char *body = bufio_offset2ptr(ta->client->bufio, ta->req_body);
-            json_t* json_obj = json_loadb(body, ta->req_body, JSON_DISABLE_EOF_CHECK, NULL);
+            json_t* json_obj = json_loadb(body, ta->req_content_len, 0, NULL);
     
             if (json_obj == NULL) { //error check
                 return send_error(ta, HTTP_BAD_REQUEST, "Could not load JSON");
@@ -546,7 +546,7 @@ handle_api(struct http_transaction *ta)
             if (!entire_cookie) {
                 return send_error(ta, HTTP_OK, "{}");
             }
-            else if (validate_cookie(entire_cookie)) {
+            else if (validate_cookie(ta, entire_cookie)) {
                 jwt_t* ymtoken;
                 char* encoded = entire_cookie + 11;
                 jwt_decode(&ymtoken, encoded, 
@@ -561,11 +561,11 @@ handle_api(struct http_transaction *ta)
                 return send_response(ta);;
             }
             else {
-                http_add_header(&ta->resp_headers, "Content-Type", "application/json");
-                buffer_appends(&ta->resp_body, "{}");
-                buffer_appends(&ta->resp_body, CRLF);
-                ta->resp_status = HTTP_OK;
-                return send_response(ta);;
+                // http_add_header(&ta->resp_headers, "Content-Type", "application/json");
+                // buffer_appends(&ta->resp_body, "{}");
+                // buffer_appends(&ta->resp_body, CRLF);
+                // ta->resp_status = HTTP_PERMISSION_DENIED;
+                return false;
             } 
         }
         //hexdump(body, ta->req_content_len);
@@ -659,7 +659,7 @@ http_handle_transaction(struct http_client *self)
         
         /* not implemented */
         //fprintf(stderr, "\n%d\n", validate_cookie(ta.cookie));
-        if (ta.cookie != NULL && validate_cookie(ta.cookie)) {
+        if (ta.cookie != NULL && validate_cookie(&ta, ta.cookie)) {
             handle_static_asset(&ta, server_root);
         }else{
             send_error(&ta, HTTP_PERMISSION_DENIED, "Authentication failed.\n");
