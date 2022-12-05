@@ -46,7 +46,9 @@ struct http_transaction {
     buffer_t resp_headers;
     buffer_t resp_body;
     char* cookie;
-    long time;
+    int vidstart;
+    int vidend;
+    bool exist;
     struct http_client *client;
 };
 

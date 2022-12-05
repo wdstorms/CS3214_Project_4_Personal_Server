@@ -126,6 +126,13 @@ http_process_headers(struct http_transaction *ta)
             ta->cookie = field_value;
         }
 
+        if (!strcasecmp(field_name, "Range")) {
+            ta->exist = true;
+            if (sscanf(field_value, "bytes=%d-%d", &ta->vidstart,&ta->vidend) == 1) {
+                ta->vidend = -1;
+            }
+        }
+
         
         
 
@@ -313,6 +320,7 @@ guess_mime_type(char *filename)
 static bool
 handle_static_asset(struct http_transaction *ta, char *basedir)
 {
+    //check for range header
     char fname[PATH_MAX];
     printf(basedir);
     char *req_path = bufio_offset2ptr(ta->client->bufio, ta->req_path);
@@ -358,10 +366,24 @@ handle_static_asset(struct http_transaction *ta, char *basedir)
 
     ta->resp_status = HTTP_OK;
     http_add_header(&ta->resp_headers, "Content-Type", "%s", guess_mime_type(fname));
+    if (strcmp(guess_mime_type(fname), "video/mp4") == 0) {
+        http_add_header(&ta->resp_headers, "Accept-Ranges", "bytes");
+        if(ta->exist) {
+            ta->resp_status = HTTP_PARTIAL_CONTENT;
+            add_content_length(&ta->resp_headers, ta->vidend - ta->vidstart + 1);
+            http_add_header(&ta->resp_headers, "Content-Range", "bytes %d-%d/%d", ta->vidstart, ta->vidend, st.st_size);
+        }
+    }
     off_t from = 0, to = st.st_size - 1;
 
     off_t content_length = to + 1 - from;
-    add_content_length(&ta->resp_headers, content_length);
+    if(!ta->exist) {
+        add_content_length(&ta->resp_headers, content_length);
+    }
+    else {
+        from = ta->vidstart;
+        to = ta->vidend;
+    }
 
     bool success = send_response_header(ta);
     if (!success)
@@ -431,18 +453,21 @@ static bool validate_cookie(struct http_transaction* ta, char* entire_cookie) {
     rc = json_unpack(jgrants, "{s:I, s:I, s:s}", 
     "exp", &exp, "iat", &iat, "sub", &sub);
 
-    rc = jwt_add_grant(ymtoken, "sub", "user0");
+    const char* username = jwt_get_grant(ymtoken, "sub");
+    if (strcmp(username, "user0") != 0) {
+        send_error(ta, HTTP_PERMISSION_DENIED, "Incorrect information");
+        return false;
+    }
     time_t now = time(NULL);
-    rc = jwt_add_grant_int(ymtoken, "iat", now);
-    long exp_value = now + token_expiration_time;
-    exp_value= jwt_get_grant_int(ymtoken, "exp");
+    rc = jwt_get_grant_int(ymtoken, "iat");
+    long exp_value= jwt_get_grant_int(ymtoken, "exp");
 
     // int64_t exp_val = (int64_t) exp;
     //int64_t iat_val = (int64_t)iat;
     
     //check token not expired
     now = time(NULL);
-    if (now < exp_value){
+    if (now - exp_value <= token_expiration_time){
         return true;
     }else {
         send_error(ta, HTTP_PERMISSION_DENIED, "Token Expired");
@@ -459,22 +484,27 @@ handle_api(struct http_transaction *ta)
         // fprintf(stderr, "in post in api\n");
         char *req_path = bufio_offset2ptr(ta->client->bufio, ta->req_path);
         if (STARTS_WITH(req_path, "/api/login")) {
+            // fprintf(stderr, "\nh1\n");
             char *body = bufio_offset2ptr(ta->client->bufio, ta->req_body);
+            // fprintf(stderr, "\nh2\n");
             json_t* json_obj = json_loadb(body, ta->req_content_len, 0, NULL);
-    
+            // fprintf(stderr, "\nh3\n");
             if (json_obj == NULL) { //error check
                 return send_error(ta, HTTP_BAD_REQUEST, "Could not load JSON");
             }
-    
+            
             json_t* attempted_user = json_object_get(json_obj, "username");
             json_t* attempted_pwd = json_object_get(json_obj, "password");
             const char* a_user = json_string_value(attempted_user);
             const char* a_pwd = json_string_value(attempted_pwd);
             // int rc = json_unpack(json_obj, "{s:s, s:s}", "username", &attempted_user, "password", &attempted_pwd);
-            
+            // fprintf(stderr, "\nh4\n");
+            if (!a_pwd || !a_user) {
+                return send_error(ta, HTTP_PERMISSION_DENIED, "Wrong user or pass\n");
+            }
             int check_pwd = strcmp(a_pwd, "thepassword");
             int check_user = strcmp(a_user, "user0");
-
+            
             if (check_pwd == 0 && check_user == 0){ //correct
                 is_auth = true;
 
@@ -485,8 +515,8 @@ handle_api(struct http_transaction *ta)
                 rc = jwt_add_grant(mytoken, "sub", "user0");
                 time_t now = time(NULL);
                 rc = jwt_add_grant_int(mytoken, "iat", now);
-                long exp_value = now + 3600 * 24;
-                rc = jwt_add_grant_int(mytoken, "exp", exp_value);
+                long exp_value = token_expiration_time;
+                rc = jwt_add_grant_int(mytoken, "exp", now);
 
                 //auth-token=sdjhsdgjtrdfhdrjhgersbd
                 rc = jwt_set_alg(mytoken, JWT_ALG_HS256,
@@ -525,7 +555,8 @@ handle_api(struct http_transaction *ta)
             //http_add_header(&ta->resp_headers, "Set-Cookie", "{s=s; s=s; s=I; s}", "auth token", &encoded, "Path", "/", "Max-Age", exp_value, "HttpOnly");
             http_add_header(&ta->resp_headers, "Set-Cookie", "auth_token=%s; Path=/; Max-Age=%lf; HttpOnly", &ta->cookie, 0);
             ta->cookie = NULL;
-
+            ta->resp_status - HTTP_OK;
+            return send_response(ta);
 
 
         }
@@ -536,17 +567,19 @@ handle_api(struct http_transaction *ta)
     else if (ta->req_method == HTTP_GET){
         
         char *req_path = bufio_offset2ptr(ta->client->bufio, ta->req_path);
-        fprintf(stderr, req_path);
+        // fprintf(stderr, req_path);
         
-        if (STARTS_WITH(req_path, "/api/login")) {
+        if (strcmp(req_path, "/api/login") == 0) {
             // char *body = bufio_offset2ptr(ta->client->bufio, ta->req_body);
             char* entire_cookie = ta->cookie;
-            fprintf(stderr, "in get in api/login\n");
+            // fprintf(stderr, "in get in api/login\n");
 
             if (!entire_cookie) {
+                fprintf(stderr, "cookie is null");
                 return send_error(ta, HTTP_OK, "{}");
             }
             else if (validate_cookie(ta, entire_cookie)) {
+                fprintf(stderr, "cookie validated");
                 jwt_t* ymtoken;
                 char* encoded = entire_cookie + 11;
                 jwt_decode(&ymtoken, encoded, 
@@ -565,6 +598,7 @@ handle_api(struct http_transaction *ta)
                 // buffer_appends(&ta->resp_body, "{}");
                 // buffer_appends(&ta->resp_body, CRLF);
                 // ta->resp_status = HTTP_PERMISSION_DENIED;
+                send_error(ta, HTTP_OK, "{}");
                 return false;
             } 
         }
@@ -573,43 +607,53 @@ handle_api(struct http_transaction *ta)
         else if(STARTS_WITH(req_path, "/api/video")){
             // char *body = bufio_offset2ptr(ta->client->bufio, ta->req_body);
 
-            // //accept rangers heading, ranges interpreted by client
-            // //retunr content range header
-            // //create a new connection
+            //accept rangers heading, ranges interpreted by client
+            //retunr content range header
+            //create a new connection
 
-            // //create overall list?? how to create a list in a json object?
-            // jwt_t* overall_obj;
-            // int rc = jwt_new(&overall_obj);
+            //create overall list?? how to create a list in a json object?
+            
+            
+            DIR *root_dir =  opendir(server_root);
+           
+            struct dirent *directory;
+            json_t* json_arr = json_array();
+            while ((directory = readdir(root_dir)) != NULL) {
+                // array of json objects for videos
+                char* d_name_str = directory->d_name;
+                char * d = strstr(d_name_str, ".mp4");
+                if(d){
+                    //get size
+                    
+                    struct stat stat_file;
+                    char fname[PATH_MAX];
+                    snprintf(fname, sizeof fname, "%s/%s", server_root, directory->d_name);
+                    if (stat(fname, &stat_file) == -1) {
+                        fprintf(stderr, "\n%s\n", directory->d_name);
+                        perror("stat");
+                        exit(EXIT_FAILURE);
+                    }
+                    int file_size = stat_file.st_size;
 
-            // DIR *root_dir =  opendir("/");
-            // struct dirent *directory;
-
-            // while ((directory = readdir(root_dir)) != NULL) {
-
-            //     if(strstr(directory->d_name, ".mp4")){
-            //         //get size
-            //         struct stat stat_file;
-            //         if (stat(directory->d_name, &stat_file) == -1) {
-            //             perror("stat");
-            //             exit(EXIT_FAILURE);
-            //         }
-            //         int file_size = stat_file.st_size;
-
-            //         // create token to add to overall list
-            //         jwt_t* elem;
-            //         int element = jwt_new(&elem);
-            //         element = jwt_add_grant_int(elem, "size", file_size);
-            //         element = jwt_add_grant(elem, "name", directory->d_name);
-            //         //now how to add element to oer arching list?
-            //     }
-            // }
-
+                    // create json object to add to overall list
+                    json_t* elem = json_object();
+                    json_object_set_new(elem, "size", json_integer(file_size));
+                    json_object_set_new(elem, "name", json_string(directory->d_name));
+                    json_array_append_new(json_arr, elem);                    
+                }
+            }
+            
+            buffer_appends(&ta->resp_body, json_dumps(json_arr, 0));
+            http_add_header(&ta->resp_headers, "Content-Type", "application/json");
+            ta->resp_status = HTTP_OK;
+            return send_response(ta);
         }
         else{ //(STARTS_WITH(ta->req_path, "/api/logout")) ? something else? error recog?
-            fprintf(stderr, "NOT in get in api/login");
+            // fprintf(stderr, "NOT in get in api/login");
+            return send_error(ta, HTTP_NOT_FOUND, "API not implemented");
         }
     }
-    return send_error(ta, HTTP_NOT_FOUND, "API not implemented");
+    return send_error(ta, HTTP_NOT_IMPLEMENTED, "Method not implemented");
 }
 
 /* Set up an http client, associating it with a bufio buffer. */
@@ -626,7 +670,7 @@ http_handle_transaction(struct http_client *self)
     struct http_transaction ta;
     memset(&ta, 0, sizeof ta);
     ta.client = self;
-
+    ta.exist = false;
     if (!http_parse_request(&ta))
         return false;
 
@@ -667,6 +711,7 @@ http_handle_transaction(struct http_client *self)
         }
     } else {
         handle_static_asset(&ta, server_root);
+        //video handling
     }
 
     buffer_delete(&ta.resp_headers);
