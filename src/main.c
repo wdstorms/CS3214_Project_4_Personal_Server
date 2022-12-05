@@ -29,8 +29,8 @@ bool html5_fallback = false;
 // silent_mode. During benchmarking, this will be true
 bool silent_mode = false;
 
-// default token expiration time is 1 day
-int token_expiration_time = 24 * 60 * 60;
+// default token expiration time is 2 seconds lol
+int token_expiration_time = 2;
 
 // root from which static files are served
 char * server_root;
