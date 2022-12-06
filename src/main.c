@@ -41,7 +41,9 @@ static void* thread_loop(void* arg) {
     // free(arg);
     struct http_client client;
     http_setup_client(&client, arg);
-    while (http_handle_transaction(&client));
+    while (http_handle_transaction(&client)) {
+        
+    }
     bufio_close(client.bufio);
     return EXIT_SUCCESS;
 }
@@ -54,7 +56,7 @@ server_loop(char *port_string)
 {
     int accepting_socket = socket_open_bind_listen(port_string, 10000);
     while (accepting_socket != -1) {
-        fprintf(stderr, "Waiting for client...\n");
+        // fprintf(stderr, "Waiting for client...\n");
         //int* client_socket = malloc(sizeof(int));
         int client_socket = socket_accept_client(accepting_socket);
         if (client_socket == -1)
