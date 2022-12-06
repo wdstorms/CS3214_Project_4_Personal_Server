@@ -163,6 +163,7 @@ http_add_header(buffer_t * resp, char* key, char* fmt, ...)
 static void
 add_content_length(buffer_t *res, size_t len)
 {
+    // fprintf(stderr, "\n%ld\n", len);
     http_add_header(res, "Content-Length", "%ld", len);
 }
 
@@ -224,12 +225,14 @@ send_response_header(struct http_transaction *ta)
     buffer_init(&response, 80);
 
     start_response(ta, &response);
-    if (bufio_sendbuffer(ta->client->bufio, &response) == -1)
+    if (bufio_sendbuffer(ta->client->bufio, &response) == -1) {
         return false;
+    }
 
     buffer_appends(&ta->resp_headers, CRLF);
-    if (bufio_sendbuffer(ta->client->bufio, &ta->resp_headers) == -1)
+    if (bufio_sendbuffer(ta->client->bufio, &ta->resp_headers) == -1) {
         return false;
+    }
 
     buffer_delete(&response);
     return true;
@@ -312,6 +315,9 @@ guess_mime_type(char *filename)
     
     if (!strcasecmp(suffix, ".mp4"))
         return "video/mp4";
+        
+    if (!strcasecmp(suffix, ".svg"))
+        return "image/svg+xml";
 
     return "text/plain";
 }
@@ -370,28 +376,40 @@ handle_static_asset(struct http_transaction *ta, char *basedir)
         http_add_header(&ta->resp_headers, "Accept-Ranges", "bytes");
         if(ta->exist) {
             ta->resp_status = HTTP_PARTIAL_CONTENT;
-            add_content_length(&ta->resp_headers, ta->vidend - ta->vidstart + 1);
-            http_add_header(&ta->resp_headers, "Content-Range", "bytes %d-%d/%d", ta->vidstart, ta->vidend, st.st_size);
+            // fprintf(stderr, "\n%d\n", ta->vidend);
+            if (ta->vidend != -1) {
+                add_content_length(&ta->resp_headers, ta->vidend - ta->vidstart + 1);
+                http_add_header(&ta->resp_headers, "Content-Range", "bytes %d-%d/%d", ta->vidstart, ta->vidend, st.st_size);
+            }
+            else {
+                add_content_length(&ta->resp_headers, st.st_size - ta->vidstart);
+                http_add_header(&ta->resp_headers, "Content-Range", "bytes %d-%d/%d", ta->vidstart, st.st_size - 1, st.st_size);
+            }
         }
     }
     off_t from = 0, to = st.st_size - 1;
-
     off_t content_length = to + 1 - from;
+
     if(!ta->exist) {
         add_content_length(&ta->resp_headers, content_length);
     }
     else {
         from = ta->vidstart;
-        to = ta->vidend;
+        if (ta->vidend != -1) {
+            to = ta->vidend;
+        }
     }
-
+    // fprintf(stderr, "\nh\n");
     bool success = send_response_header(ta);
+    // fprintf(stderr, "\nh\n");
     if (!success)
         goto out;
 
     // sendfile may send fewer bytes than requested, hence the loop
-    while (success && from <= to)
+    while (success) {
+        // fprintf(stderr, "%ld\n", to);
         success = bufio_sendfile(ta->client->bufio, filefd, &from, to + 1 - from) > 0;
+    }
 
 out:
     close(filefd);
@@ -436,7 +454,7 @@ static bool validate_cookie(struct http_transaction* ta, char* entire_cookie) {
     }
 
     char *grants = jwt_get_grants_json(ymtoken, NULL); // NULL means all
-    fprintf(stderr, "\n%s\n", grants);
+    // fprintf(stderr, "\n%s\n", grants);
     // fprintf(stderr, "checkpoint 3\n");
     if (grants == NULL) {
         //send error message
@@ -478,17 +496,12 @@ static bool validate_cookie(struct http_transaction* ta, char* entire_cookie) {
 static bool
 handle_api(struct http_transaction *ta)
 {
-    // fprintf(stderr, "in HANDLE API\n");
     
     if (ta->req_method == HTTP_POST) {
-        // fprintf(stderr, "in post in api\n");
         char *req_path = bufio_offset2ptr(ta->client->bufio, ta->req_path);
         if (STARTS_WITH(req_path, "/api/login")) {
-            // fprintf(stderr, "\nh1\n");
             char *body = bufio_offset2ptr(ta->client->bufio, ta->req_body);
-            // fprintf(stderr, "\nh2\n");
             json_t* json_obj = json_loadb(body, ta->req_content_len, 0, NULL);
-            // fprintf(stderr, "\nh3\n");
             if (json_obj == NULL) { //error check
                 return send_error(ta, HTTP_BAD_REQUEST, "Could not load JSON");
             }
@@ -497,8 +510,6 @@ handle_api(struct http_transaction *ta)
             json_t* attempted_pwd = json_object_get(json_obj, "password");
             const char* a_user = json_string_value(attempted_user);
             const char* a_pwd = json_string_value(attempted_pwd);
-            // int rc = json_unpack(json_obj, "{s:s, s:s}", "username", &attempted_user, "password", &attempted_pwd);
-            // fprintf(stderr, "\nh4\n");
             if (!a_pwd || !a_user) {
                 return send_error(ta, HTTP_PERMISSION_DENIED, "Wrong user or pass\n");
             }
@@ -520,24 +531,17 @@ handle_api(struct http_transaction *ta)
 
                 //auth-token=sdjhsdgjtrdfhdrjhgersbd
                 rc = jwt_set_alg(mytoken, JWT_ALG_HS256,
-                (unsigned char *)SECRET_IN_CODE, //is key username?
+                (unsigned char *)SECRET_IN_CODE, 
                 strlen(SECRET_IN_CODE));
-
-                //rc = jwt_dump_fp(mytoken, stdout, 1); // prints the json body so far
 
                 char *encoded = jwt_encode_str(mytoken); //encoded using HMAC
                 ta->cookie = encoded; //add cookie to ta struct
-                // http_add_header(&ta->resp_headers, "Content-Type", "application/json");
-
-                //fmt: <cookie-name>=<cookie-value>; Path=<path-value>; Max-Age=<number>; HttpOnly
-                //http_add_header(&ta->resp_headers, "Set-Cookie", "{s=s; s=s; s=I; s}", "auth token", &encoded, "Path", "/", "Max-Age", exp_value, "HttpOnly");
                 http_add_header(&ta->resp_headers, "Set-Cookie", "auth_token=%s; Path=/; Max-Age=%ld; HttpOnly", encoded, exp_value);
 
                 char *grants = jwt_get_grants_json(mytoken, NULL); // NULL means all
                 rc = send_error(ta, HTTP_OK, grants);
 
-                // hexdump(body, ta->req_content_len);
-                return rc; //what do we return here
+                return rc; 
             }
             else {
                 // fprintf(stderr, "%s", (char*)ta);
@@ -555,7 +559,7 @@ handle_api(struct http_transaction *ta)
             //http_add_header(&ta->resp_headers, "Set-Cookie", "{s=s; s=s; s=I; s}", "auth token", &encoded, "Path", "/", "Max-Age", exp_value, "HttpOnly");
             http_add_header(&ta->resp_headers, "Set-Cookie", "auth_token=%s; Path=/; Max-Age=%lf; HttpOnly", &ta->cookie, 0);
             ta->cookie = NULL;
-            ta->resp_status - HTTP_OK;
+            ta->resp_status = HTTP_OK;
             return send_response(ta);
 
 
@@ -570,16 +574,12 @@ handle_api(struct http_transaction *ta)
         // fprintf(stderr, req_path);
         
         if (strcmp(req_path, "/api/login") == 0) {
-            // char *body = bufio_offset2ptr(ta->client->bufio, ta->req_body);
             char* entire_cookie = ta->cookie;
-            // fprintf(stderr, "in get in api/login\n");
 
             if (!entire_cookie) {
-                fprintf(stderr, "cookie is null");
                 return send_error(ta, HTTP_OK, "{}");
             }
             else if (validate_cookie(ta, entire_cookie)) {
-                fprintf(stderr, "cookie validated");
                 jwt_t* ymtoken;
                 char* encoded = entire_cookie + 11;
                 jwt_decode(&ymtoken, encoded, 
@@ -594,10 +594,6 @@ handle_api(struct http_transaction *ta)
                 return send_response(ta);;
             }
             else {
-                // http_add_header(&ta->resp_headers, "Content-Type", "application/json");
-                // buffer_appends(&ta->resp_body, "{}");
-                // buffer_appends(&ta->resp_body, CRLF);
-                // ta->resp_status = HTTP_PERMISSION_DENIED;
                 send_error(ta, HTTP_OK, "{}");
                 return false;
             } 
@@ -605,15 +601,6 @@ handle_api(struct http_transaction *ta)
         //hexdump(body, ta->req_content_len);
         //printf("end");
         else if(STARTS_WITH(req_path, "/api/video")){
-            // char *body = bufio_offset2ptr(ta->client->bufio, ta->req_body);
-
-            //accept rangers heading, ranges interpreted by client
-            //retunr content range header
-            //create a new connection
-
-            //create overall list?? how to create a list in a json object?
-            
-            
             DIR *root_dir =  opendir(server_root);
            
             struct dirent *directory;
@@ -623,13 +610,11 @@ handle_api(struct http_transaction *ta)
                 char* d_name_str = directory->d_name;
                 char * d = strstr(d_name_str, ".mp4");
                 if(d){
-                    //get size
-                    
                     struct stat stat_file;
                     char fname[PATH_MAX];
                     snprintf(fname, sizeof fname, "%s/%s", server_root, directory->d_name);
                     if (stat(fname, &stat_file) == -1) {
-                        fprintf(stderr, "\n%s\n", directory->d_name);
+                        closedir(root_dir);
                         perror("stat");
                         exit(EXIT_FAILURE);
                     }
@@ -646,10 +631,10 @@ handle_api(struct http_transaction *ta)
             buffer_appends(&ta->resp_body, json_dumps(json_arr, 0));
             http_add_header(&ta->resp_headers, "Content-Type", "application/json");
             ta->resp_status = HTTP_OK;
+            closedir(root_dir);
             return send_response(ta);
         }
-        else{ //(STARTS_WITH(ta->req_path, "/api/logout")) ? something else? error recog?
-            // fprintf(stderr, "NOT in get in api/login");
+        else{ 
             return send_error(ta, HTTP_NOT_FOUND, "API not implemented");
         }
     }
@@ -691,18 +676,12 @@ http_handle_transaction(struct http_client *self)
     http_add_header(&ta.resp_headers, "Server", "CS3214-Personal-Server");
     buffer_init(&ta.resp_body, 0);
 
-    // bool rc = false;
     char *req_path = bufio_offset2ptr(ta.client->bufio, ta.req_path);
     
-    // do .. stuff here
     if (STARTS_WITH(req_path, "/api")) {
-        
-        /*rc =*/ handle_api(&ta);
+        handle_api(&ta);
     } else
     if (STARTS_WITH(req_path, "/private")) {
-        
-        /* not implemented */
-        //fprintf(stderr, "\n%d\n", validate_cookie(ta.cookie));
         if (ta.cookie != NULL && validate_cookie(&ta, ta.cookie)) {
             handle_static_asset(&ta, server_root);
         }else{
@@ -711,7 +690,6 @@ http_handle_transaction(struct http_client *self)
         }
     } else {
         handle_static_asset(&ta, server_root);
-        //video handling
     }
 
     buffer_delete(&ta.resp_headers);

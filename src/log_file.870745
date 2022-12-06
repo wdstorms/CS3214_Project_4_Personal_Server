@@ -1,7 +1,0 @@
-set_robust_list(0x7ff7ca3e79e0, 24)     = 0
-recvfrom(4, "GET /private/secure.txt HTTP/1.1"..., 2048, MSG_NOSIGNAL, NULL, NULL) = 261
-recvfrom(4, "", 2048, MSG_NOSIGNAL, NULL, NULL) = 0
-close(4)                                = 0
-madvise(0x7ff7c9be7000, 8368128, MADV_DONTNEED) = 0
-exit(0)                                 = ?
-+++ exited with 0 +++

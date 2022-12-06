@@ -1,7 +1,0 @@
-set_robust_list(0x7f88a67ed9e0, 24)     = 0
-recvfrom(5, "POST /api/login HTTP/1.1\r\nHost: "..., 2048, MSG_NOSIGNAL, NULL, NULL) = 228
-openat(AT_FDCWD, "/dev/urandom", O_RDONLY) = 6
-read(6, "\35\216\300\220", 4)           = 4
-close(6)                                = 0
---- SIGSEGV {si_signo=SIGSEGV, si_code=SEGV_MAPERR, si_addr=NULL} ---
-+++ killed by SIGSEGV +++
