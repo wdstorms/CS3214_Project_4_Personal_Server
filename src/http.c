@@ -315,6 +315,9 @@ guess_mime_type(char *filename)
     
     if (!strcasecmp(suffix, ".mp4"))
         return "video/mp4";
+        
+    if (!strcasecmp(suffix, ".svg"))
+        return "image/svg+xml";
 
     return "text/plain";
 }
