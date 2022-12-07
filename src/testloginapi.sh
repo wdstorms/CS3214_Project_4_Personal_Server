@@ -1,11 +1,11 @@
 
 # change this number as per instruction to avoid conflicts.
-PORT=10000
+PORT=16894
 
 # to test against a working implementation (and see the intended responses)
 # change this variable, e.g.
 #URL=http://hazelnut.rlogin:12345
-URL=http://localhost:${PORT}
+URL=http://oak:${PORT}
 
 # the file in which curl stores cookies across runs
 COOKIEJAR=cookies.txt
@@ -22,11 +22,15 @@ curl -v -H "Content-Type: application/json" \
      -d '{"username":"user0","password":"thepassword"}' \
     ${URL}/api/login
 
+echo
+
 # this should succeed if the password was correct
 # curl presents the cookie from the previous request
 curl -v \
     -b ${COOKIEJAR} \
     ${URL}/api/login
+
+echo
 
 # create a 'private' folder first for your server, and
 # put a file `secret.txt` in it.
@@ -34,15 +38,21 @@ curl -v \
 curl -v \
     ${URL}/private/secret.txt
 
+echo
+
 # this should succeed since credentials are included (via the cookie jar)
 curl -v \
     -b ${COOKIEJAR} \
     ${URL}/private/secret.txt
 
+echo
+
 # now log out
 curl -v -X POST \
     -c ${COOKIEJAR} \
     ${URL}/api/logout
+
+echo
 
 # this should fail since the cookie should have been removed from the cookie jar
 curl -v \

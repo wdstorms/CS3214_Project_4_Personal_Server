@@ -102,16 +102,17 @@ static bool validate_cookie(struct http_transaction* ta, char* entire_cookie) {
             break;
         }
     }
+    // fprintf(stderr, "\ncookie parsed...\n");
     if (!entire_cookie) {
         return false;
     }
     // fprintf(stderr, "checkpoint 1\n");
-    
     char* encoded = entire_cookie + 11;
 
     int rc = jwt_decode(&ymtoken, encoded, 
     (unsigned char *)SECRET_IN_CODE, 
     strlen(SECRET_IN_CODE));
+    // fprintf(stderr, "\ncookie decoded\n");
     // fprintf(stderr, "checkpoint 2\n");
     //check token signature not valid
     if (rc) {
@@ -121,6 +122,7 @@ static bool validate_cookie(struct http_transaction* ta, char* entire_cookie) {
     }
 
     char *grants = jwt_get_grants_json(ymtoken, NULL); // NULL means all
+    // fprintf(stderr, "\nget-grants succeeded\n");
     // fprintf(stderr, "\n%s\n", grants);
     // fprintf(stderr, "checkpoint 3\n");
     if (grants == NULL) {
@@ -132,17 +134,20 @@ static bool validate_cookie(struct http_transaction* ta, char* entire_cookie) {
     // an example of how to use Jansson
     json_error_t error;
     json_t *jgrants = json_loadb(grants, strlen(grants), 0, &error);
-
+    // fprintf(stderr, "\nload-grants succeeded\n");
     json_int_t* exp, iat;
     const char *sub;
-    rc = json_unpack(jgrants, "{s:I, s:I, s:s}", 
-    "exp", &exp, "iat", &iat, "sub", &sub);
-
-    const char* username = jwt_get_grant(ymtoken, "sub");
-    if (strcmp(username, "user0") != 0) {
-        // send_error(ta, HTTP_PERMISSION_DENIED, "Incorrect information");
-        return false;
-    }
+    const char* pass;
+    rc = json_unpack(jgrants, "{s:I, s:I, s:s, s:s}", 
+    "exp", &exp, "iat", &iat, "sub", &sub, "pass", &pass);
+    // fprintf(stderr, "\nunpack succeeded\n");
+    // const char* username = jwt_get_grant(ymtoken, "sub");
+    // const char* password = jwt_get_grant(ymtoken, "pass");
+    // if (strcmp(username, "user0") != 0 || strcmp(password, "thepassword") != 0) {
+    //     // send_error(ta, HTTP_PERMISSION_DENIED, "Incorrect information");
+    //     return false;
+    // }
+    // fprintf(stderr, "\nusername, password good\n");
     time_t now = time(NULL);
     rc = jwt_get_grant_int(ymtoken, "iat");
     long exp_value= jwt_get_grant_int(ymtoken, "exp");
@@ -200,7 +205,8 @@ http_process_headers(struct http_transaction *ta)
          * are zero-terminated strings.
          */
         if (!strcasecmp(field_name, "Cookie")) {
-            if (ta->cookie == NULL || !validate_cookie(ta, ta->cookie))
+            // fprintf(stderr, field_value);
+            // if (ta->cookie == NULL || !validate_cookie(ta, ta->cookie))
                 ta->cookie = field_value;
         }
 
@@ -528,7 +534,7 @@ handle_api(struct http_transaction *ta)
                 time_t now = time(NULL);
                 rc = jwt_add_grant_int(mytoken, "iat", now);
                 long exp_value = token_expiration_time;
-                rc = jwt_add_grant_int(mytoken, "exp", now);
+                rc = jwt_add_grant_int(mytoken, "exp", now + exp_value);
 
                 //auth-token=sdjhsdgjtrdfhdrjhgersbd
                 rc = jwt_set_alg(mytoken, JWT_ALG_HS256,
@@ -536,7 +542,7 @@ handle_api(struct http_transaction *ta)
                 strlen(SECRET_IN_CODE));
 
                 char *encoded = jwt_encode_str(mytoken); //encoded using HMAC
-                ta->cookie = encoded; //add cookie to ta struct
+                ta->cookie = strdup(encoded); //add cookie to ta struct
                 http_add_header(&ta->resp_headers, "Set-Cookie", "auth_token=%s; Path=/; Max-Age=%ld; HttpOnly", encoded, exp_value);
 
                 char *grants = jwt_get_grants_json(mytoken, NULL); // NULL means all
@@ -558,7 +564,7 @@ handle_api(struct http_transaction *ta)
 
             //fmt: <cookie-name>=<cookie-value>; Path=<path-value>; Max-Age=<number>; HttpOnly
             //http_add_header(&ta->resp_headers, "Set-Cookie", "{s=s; s=s; s=I; s}", "auth token", &encoded, "Path", "/", "Max-Age", exp_value, "HttpOnly");
-            http_add_header(&ta->resp_headers, "Set-Cookie", "auth_token=%s; Path=/; Max-Age=%lf; HttpOnly", &ta->cookie, 0);
+            http_add_header(&ta->resp_headers, "Set-Cookie", "auth_token=; Path=/; Max-Age=%lf; HttpOnly", 0);
             ta->cookie = NULL;
             ta->resp_status = HTTP_OK;
             return send_response(ta);
@@ -575,12 +581,14 @@ handle_api(struct http_transaction *ta)
         // fprintf(stderr, req_path);
         
         if (strcmp(req_path, "/api/login") == 0) {
+            // fprintf(stderr, "\nin GET api-login\n");
             char* entire_cookie = ta->cookie;
             // bool denied = false;
             if (!entire_cookie) {
                 return send_error(ta, HTTP_OK, "{}");
             }
             else if (validate_cookie(ta, entire_cookie)) {
+                // fprintf(stderr, "\ncookie validated\n");
                 jwt_t* ymtoken;
                 char* encoded = entire_cookie + 11;
                 jwt_decode(&ymtoken, encoded, 
@@ -589,12 +597,13 @@ handle_api(struct http_transaction *ta)
                 char *grants = jwt_get_grants_json(ymtoken, NULL); // NULL means all
                 http_add_header(&ta->resp_headers, "Content-Type", "application/json");
                 buffer_appends(&ta->resp_body, grants);
-                buffer_appends(&ta->resp_body, CRLF);
+                // buffer_appends(&ta->resp_body, CRLF);
                 
                 ta->resp_status = HTTP_OK;
                 return send_response(ta);;
             }
             else {
+                // fprintf(stderr, "\ncookie not validated\n");
                 send_error(ta, HTTP_OK, "{}");
                 return false;
             } 
@@ -659,9 +668,10 @@ http_handle_transaction(struct http_client *self)
     ta.exist = false;
     if (!http_parse_request(&ta))
         return false;
-
+    // fprintf(stderr, "\nparse-request succeeded\n");
     if (!http_process_headers(&ta))
         return false;
+    // fprintf(stderr, "\n%s\n", ta.cookie);
     bool http1_1 = ta.req_version == HTTP_1_1;
     if (ta.req_content_len > 0) {
         int rc = bufio_read(self->bufio, ta.req_content_len, &ta.req_body);
@@ -681,6 +691,7 @@ http_handle_transaction(struct http_client *self)
     
     if (STARTS_WITH(req_path, "/api")) {
         handle_api(&ta);
+        // fprintf(stderr, "\nhandle-api succeeded\n");
     } else
     if (STARTS_WITH(req_path, "/private")) {
         if (ta.cookie != NULL && validate_cookie(&ta, ta.cookie)) {
