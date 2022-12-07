@@ -83,6 +83,83 @@ http_parse_request(struct http_transaction *ta)
     return true;
 }
 
+static bool validate_cookie(struct http_transaction* ta, char* entire_cookie) {
+    
+    jwt_t* ymtoken;
+    while(*entire_cookie == ' ' || *entire_cookie == '\t') { //skip white space
+        entire_cookie++;
+    }
+    if (!strstr(entire_cookie, "auth_token=")) 
+    {
+        return false;
+    }
+    while (entire_cookie != NULL) {
+        if(!STARTS_WITH(entire_cookie, "auth_token=")) {
+            // send_error(ta, HTTP_PERMISSION_DENIED, "Bad/Missing Token");
+            entire_cookie++;
+        }
+        else {
+            break;
+        }
+    }
+    if (!entire_cookie) {
+        return false;
+    }
+    // fprintf(stderr, "checkpoint 1\n");
+    
+    char* encoded = entire_cookie + 11;
+
+    int rc = jwt_decode(&ymtoken, encoded, 
+    (unsigned char *)SECRET_IN_CODE, 
+    strlen(SECRET_IN_CODE));
+    // fprintf(stderr, "checkpoint 2\n");
+    //check token signature not valid
+    if (rc) {
+        //tok_valid = true;
+        //send_error(ta, HTTP_PERMISSION_DENIED, "Bad Token");
+        return false;
+    }
+
+    char *grants = jwt_get_grants_json(ymtoken, NULL); // NULL means all
+    // fprintf(stderr, "\n%s\n", grants);
+    // fprintf(stderr, "checkpoint 3\n");
+    if (grants == NULL) {
+        //send error message
+        // send_error(ta, HTTP_PERMISSION_DENIED, "Bad Grants");
+        return false;
+    }
+    
+    // an example of how to use Jansson
+    json_error_t error;
+    json_t *jgrants = json_loadb(grants, strlen(grants), 0, &error);
+
+    json_int_t* exp, iat;
+    const char *sub;
+    rc = json_unpack(jgrants, "{s:I, s:I, s:s}", 
+    "exp", &exp, "iat", &iat, "sub", &sub);
+
+    const char* username = jwt_get_grant(ymtoken, "sub");
+    if (strcmp(username, "user0") != 0) {
+        // send_error(ta, HTTP_PERMISSION_DENIED, "Incorrect information");
+        return false;
+    }
+    time_t now = time(NULL);
+    rc = jwt_get_grant_int(ymtoken, "iat");
+    long exp_value= jwt_get_grant_int(ymtoken, "exp");
+
+    // int64_t exp_val = (int64_t) exp;
+    //int64_t iat_val = (int64_t)iat;
+    
+    //check token not expired
+    now = time(NULL);
+    if (now - exp_value <= token_expiration_time){
+        return true;
+    }else {
+        // send_error(ta, HTTP_PERMISSION_DENIED, "Token Expired");
+        return false;
+    }
+}
+
 /* Process HTTP headers. */
 static bool
 http_process_headers(struct http_transaction *ta)
@@ -123,7 +200,8 @@ http_process_headers(struct http_transaction *ta)
          * are zero-terminated strings.
          */
         if (!strcasecmp(field_name, "Cookie")) {
-            ta->cookie = field_value;
+            if (ta->cookie == NULL || !validate_cookie(ta, ta->cookie))
+                ta->cookie = field_value;
         }
 
         if (!strcasecmp(field_name, "Range")) {
@@ -416,83 +494,6 @@ out:
     return success;
 }
 
-static bool validate_cookie(struct http_transaction* ta, char* entire_cookie) {
-    
-    jwt_t* ymtoken;
-    while(*entire_cookie == ' ' || *entire_cookie == '\t') { //skip white space
-        entire_cookie++;
-    }
-    if (!strstr(entire_cookie, "auth_token=")) 
-    {
-        return false;
-    }
-    while (entire_cookie != NULL) {
-        if(!STARTS_WITH(entire_cookie, "auth_token=")) {
-            // send_error(ta, HTTP_PERMISSION_DENIED, "Bad/Missing Token");
-            entire_cookie++;
-        }
-        else {
-            break;
-        }
-    }
-    if (!entire_cookie) {
-        return false;
-    }
-    // fprintf(stderr, "checkpoint 1\n");
-    
-    char* encoded = entire_cookie + 11;
-
-    int rc = jwt_decode(&ymtoken, encoded, 
-    (unsigned char *)SECRET_IN_CODE, 
-    strlen(SECRET_IN_CODE));
-    // fprintf(stderr, "checkpoint 2\n");
-    //check token signature not valid
-    if (rc) {
-        //tok_valid = true;
-        //send_error(ta, HTTP_PERMISSION_DENIED, "Bad Token");
-        return false;
-    }
-
-    char *grants = jwt_get_grants_json(ymtoken, NULL); // NULL means all
-    // fprintf(stderr, "\n%s\n", grants);
-    // fprintf(stderr, "checkpoint 3\n");
-    if (grants == NULL) {
-        //send error message
-        // send_error(ta, HTTP_PERMISSION_DENIED, "Bad Grants");
-        return false;
-    }
-    
-    // an example of how to use Jansson
-    json_error_t error;
-    json_t *jgrants = json_loadb(grants, strlen(grants), 0, &error);
-
-    json_int_t* exp, iat;
-    const char *sub;
-    rc = json_unpack(jgrants, "{s:I, s:I, s:s}", 
-    "exp", &exp, "iat", &iat, "sub", &sub);
-
-    const char* username = jwt_get_grant(ymtoken, "sub");
-    if (strcmp(username, "user0") != 0) {
-        send_error(ta, HTTP_PERMISSION_DENIED, "Incorrect information");
-        return false;
-    }
-    time_t now = time(NULL);
-    rc = jwt_get_grant_int(ymtoken, "iat");
-    long exp_value= jwt_get_grant_int(ymtoken, "exp");
-
-    // int64_t exp_val = (int64_t) exp;
-    //int64_t iat_val = (int64_t)iat;
-    
-    //check token not expired
-    now = time(NULL);
-    if (now - exp_value <= token_expiration_time){
-        return true;
-    }else {
-        send_error(ta, HTTP_PERMISSION_DENIED, "Token Expired");
-        return false;
-    }
-}
-
 static bool
 handle_api(struct http_transaction *ta)
 {
@@ -575,7 +576,7 @@ handle_api(struct http_transaction *ta)
         
         if (strcmp(req_path, "/api/login") == 0) {
             char* entire_cookie = ta->cookie;
-
+            // bool denied = false;
             if (!entire_cookie) {
                 return send_error(ta, HTTP_OK, "{}");
             }
