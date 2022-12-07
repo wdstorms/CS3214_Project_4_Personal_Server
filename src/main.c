@@ -30,7 +30,7 @@ bool html5_fallback = false;
 bool silent_mode = false;
 
 // default token expiration time is 2 seconds lol
-int token_expiration_time = 2;
+int token_expiration_time = 3600 * 24;
 
 // root from which static files are served
 char * server_root;
